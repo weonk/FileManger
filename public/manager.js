@@ -49,7 +49,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const viewSwitchBtn = document.getElementById('view-switch-btn');
     const itemListView = document.getElementById('itemListView');
     const itemListBody = document.getElementById('itemListBody');
-    const collapseBtn = document.getElementById('collapseBtn'); // *** 新增 ***
+    const collapseBtn = document.getElementById('collapseBtn');
 
     // 状态
     let isMultiSelectMode = false;
@@ -432,7 +432,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // --- 事件监听 ---
     if (logoutBtn) {
         logoutBtn.addEventListener('click', () => {
             window.location.href = '/logout';
@@ -469,7 +468,16 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
-    // *** 新增: 折叠按钮事件 ***
+    const checkScreenWidthAndCollapse = () => {
+        if (window.innerWidth <= 768 && actionBar && !actionBar.classList.contains('collapsed')) {
+            actionBar.classList.add('collapsed');
+            const icon = collapseBtn.querySelector('i');
+            icon.classList.remove('fa-chevron-down');
+            icon.classList.add('fa-chevron-up');
+            collapseBtn.title = "展开";
+        }
+    };
+
     if (collapseBtn) {
         collapseBtn.addEventListener('click', () => {
             actionBar.classList.toggle('collapsed');
@@ -485,7 +493,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
-
 
     if (fileInput) {
         fileInput.addEventListener('change', () => {
@@ -1075,5 +1082,7 @@ document.addEventListener('DOMContentLoaded', () => {
             folderId = 1; 
         }
         loadFolderContents(folderId);
+        // 在這裡也執行一次螢幕寬度檢查
+        checkScreenWidthAndCollapse();
     }
 });

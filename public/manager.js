@@ -49,6 +49,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const viewSwitchBtn = document.getElementById('view-switch-btn');
     const itemListView = document.getElementById('itemListView');
     const itemListBody = document.getElementById('itemListBody');
+    const collapseBtn = document.getElementById('collapseBtn'); // *** 新增 ***
 
     // 状态
     let isMultiSelectMode = false;
@@ -467,6 +468,24 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
+    
+    // *** 新增: 折叠按钮事件 ***
+    if (collapseBtn) {
+        collapseBtn.addEventListener('click', () => {
+            actionBar.classList.toggle('collapsed');
+            const icon = collapseBtn.querySelector('i');
+            if (actionBar.classList.contains('collapsed')) {
+                icon.classList.remove('fa-chevron-down');
+                icon.classList.add('fa-chevron-up');
+                collapseBtn.title = "展开";
+            } else {
+                icon.classList.remove('fa-chevron-up');
+                icon.classList.add('fa-chevron-down');
+                collapseBtn.title = "收起";
+            }
+        });
+    }
+
 
     if (fileInput) {
         fileInput.addEventListener('change', () => {

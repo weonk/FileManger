@@ -6,47 +6,6 @@
     <title>管理后台</title>
     <link rel="stylesheet" href="/vendor/fontawesome/css/all.min.css">
     <link rel="stylesheet" href="/manager.css">
-    <style>
-        .setting-card {
-            background-color: #fff;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: var(--shadow);
-            margin-top: 20px;
-        }
-        .setting-card h2 {
-            margin-top: 0;
-        }
-        .setting-card select, .setting-card button, .setting-card input {
-            padding: 10px;
-            border-radius: 5px;
-            border: 1px solid #ccc;
-            margin-top: 10px;
-        }
-        .setting-card button {
-            background-color: var(--primary-color);
-            color: white;
-            cursor: pointer;
-        }
-        .user-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 20px;
-        }
-        .user-table th, .user-table td {
-            border: 1px solid #ddd;
-            padding: 8px;
-            text-align: left;
-        }
-        .user-table th {
-            background-color: #f2f2f2;
-        }
-        .user-table .actions button {
-            margin-right: 5px;
-            padding: 5px 10px;
-            font-size: 12px;
-        }
-    </style>
 </head>
 <body>
     <div class="container">
@@ -84,25 +43,23 @@
                     </tr>
                 </thead>
                 <tbody id="user-table-body">
-                    </tbody>
+                </tbody>
             </table>
         </div>
-        </div>
+    </div>
     <script src="/vendor/axios/axios.min.js"></script>
     <script>
+        // Javascript 程式碼保持不變
         document.addEventListener('DOMContentLoaded', () => {
             const currentModeEl = document.getElementById('current-mode');
             const storageSelect = document.getElementById('storage-select');
             const saveBtn = document.getElementById('save-btn');
             const saveStatus = document.getElementById('save-status');
-
-            // --- *** 新增部分 开始 *** ---
             const addUserForm = document.getElementById('add-user-form');
             const newUsernameInput = document.getElementById('new-username');
             const newPasswordInput = document.getElementById('new-password');
             const userTableBody = document.getElementById('user-table-body');
-            // --- *** 新增部分 结束 *** ---
-
+            
             async function loadCurrentMode() {
                 try {
                     const res = await axios.get('/api/admin/storage-mode');
@@ -129,7 +86,6 @@
                 }
             });
             
-            // --- *** 新增部分 开始 *** ---
             async function loadUsers() {
                 try {
                     const res = await axios.get('/api/admin/users');
@@ -201,8 +157,6 @@
             });
 
             loadUsers();
-            // --- *** 新增部分 结束 *** ---
-
             loadCurrentMode();
         });
     </script>

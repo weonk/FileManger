@@ -29,7 +29,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const conflictModal = document.getElementById('conflictModal');
     const conflictFileName = document.getElementById('conflictFileName');
     const conflictOptions = document.getElementById('conflictOptions');
-    // --- *** 新增資料夾衝突對話框元素 *** ---
     const folderConflictModal = document.getElementById('folderConflictModal');
     const folderConflictName = document.getElementById('folderConflictName');
     const folderConflictOptions = document.getElementById('folderConflictOptions');
@@ -130,9 +129,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
     
-    // --- *** 核心修正：將包含衝突檢查的上傳邏輯重新抽出 *** ---
+    // --- *** 核心修正 *** ---
     const uploadFiles = async (files, targetFolderId, isDrag = false) => {
-        if (files.length === 0) return;
+        if (files.length === 0) {
+            showNotification('请选择档案。', 'error', !isDrag ? uploadNotificationArea : null);
+            return;
+        }
     
         const oversizedFiles = Array.from(files).filter(file => file.size > MAX_TELEGRAM_SIZE);
         if (oversizedFiles.length > 0) {
@@ -140,17 +142,15 @@ document.addEventListener('DOMContentLoaded', () => {
             showNotification(`档案 ${fileNames} 过大，超过 ${formatBytes(MAX_TELEGRAM_SIZE)} 的限制。`, 'error', !isDrag ? uploadNotificationArea : null);
             return;
         }
-    
-        // 僅檢查檔案，因為資料夾結構由後端處理
-        let existenceData = [];
-        const fileObjects = Array.from(files).filter(f => f.name); // 過濾掉奇怪的空項目
-        const fileNames = fileObjects.map(f => {
-            const pathParts = (f.webkitRelativePath || f.name).split('/');
-            return pathParts[pathParts.length - 1]; // 只取檔名
-        });
 
+        const fileObjects = Array.from(files).filter(f => f.name);
+        const filesToCheck = fileObjects.map(f => ({
+            relativePath: f.webkitRelativePath || f.name
+        }));
+
+        let existenceData = [];
         try {
-            const res = await axios.post('/api/check-existence', { fileNames, folderId: targetFolderId });
+            const res = await axios.post('/api/check-existence', { files: filesToCheck, folderId: targetFolderId });
             existenceData = res.data.files;
         } catch (error) {
             showNotification('检查档案是否存在时出错。', 'error', !isDrag ? null : uploadNotificationArea);
@@ -161,11 +161,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const filesToOverwrite = [];
     
         for (const file of fileObjects) {
-             const fileName = (file.webkitRelativePath || file.name).split('/').pop();
-            const existing = existenceData.find(f => f.name === fileName && f.exists);
+            const relativePath = file.webkitRelativePath || file.name;
+            const existing = existenceData.find(f => f.relativePath === relativePath && f.exists);
+    
             if (existing) {
-                if (confirm(`档案 "${fileName}" 已存在于目标资料夹。您要覆盖它吗？`)) {
-                    filesToOverwrite.push({ name: fileName, messageId: existing.messageId });
+                if (confirm(`档案 "${existing.name}" 已存在于目标资料夹。您要覆盖它吗？`)) {
+                    filesToOverwrite.push({ name: existing.name, messageId: existing.messageId });
                     filesToUpload.push(file);
                 }
             } else {

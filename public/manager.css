@@ -1,5 +1,7 @@
+/* --- 全局變量與基礎樣式 --- */
 :root {
   --primary-color: #007bff;
+  --success-color: #28a745;
   --background-color: #f8f9fa;
   --card-background: #ffffff;
   --text-color: #212529;
@@ -16,7 +18,7 @@ body {
   flex-direction: column;
   height: 100vh;
   box-sizing: border-box;
-  overflow: hidden; 
+  overflow: hidden;
 }
 .container {
   max-width: 1200px;
@@ -34,9 +36,9 @@ body {
   flex-wrap: wrap;
   flex-shrink: 0; 
 }
-.main-header a, #homeLink {
-  text-decoration: none;
-}
+.main-header a, #homeLink { text-decoration: none; }
+
+/* --- 通用按鈕 --- */
 .upload-link-btn {
   background-color: var(--primary-color);
   color: white;
@@ -54,10 +56,9 @@ body {
   height: 40px; 
   box-sizing: border-box; 
 }
-.upload-link-btn:hover {
-  background-color: #0069d9;
-}
+.upload-link-btn:hover { background-color: #0069d9; }
 
+/* --- 麵包屑導航 --- */
 .breadcrumb {
     display: flex;
     align-items: center;
@@ -77,6 +78,7 @@ body {
 .breadcrumb span { color: #6c757d; font-weight: normal; }
 .breadcrumb .separator { margin: 0 10px; color: #6c757d; }
 
+/* --- 主文件區域 --- */
 #dropZone {
     position: relative;
     border: 2px dashed #ccc;
@@ -87,72 +89,36 @@ body {
     overflow-y: auto;
     min-height: 200px; 
 }
-
 #dropZone.dragover {
     border-color: var(--primary-color);
     background-color: #f0f8ff;
 }
 #dropZoneOverlay {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 123, 255, 0.1);
-    display: none;
-    justify-content: center;
-    align-items: center;
-    font-size: 24px;
-    font-weight: bold;
-    color: var(--primary-color);
-    pointer-events: none;
-    z-index: 10;
-    border-radius: 8px;
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0, 123, 255, 0.1); display: none; justify-content: center;
+    align-items: center; font-size: 24px; font-weight: bold; color: var(--primary-color);
+    pointer-events: none; z-index: 10; border-radius: 8px;
 }
-#dropZone.dragover #dropZoneOverlay {
-    display: flex;
-}
+#dropZone.dragover #dropZoneOverlay { display: flex; }
 .item-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
     gap: 20px;
 }
 .item-grid:empty::after {
-    content: '将文件拖到此处以上传';
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    color: #adb5bd;
-    font-size: 1.2rem;
-    pointer-events: none;
+    content: '將文件拖到此處以上傳'; position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%, -50%); color: #adb5bd; font-size: 1.2rem; pointer-events: none;
 }
 .item-card {
-    background: var(--card-background);
-    border-radius: 8px;
-    box-shadow: var(--shadow);
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-    position: relative;
-    transition: all 0.2s;
-    cursor: pointer;
-    border: 2px solid transparent;
+    background: var(--card-background); border-radius: 8px; box-shadow: var(--shadow);
+    overflow: hidden; display: flex; flex-direction: column; position: relative;
+    transition: all 0.2s; cursor: pointer; border: 2px solid transparent;
 }
 .item-card:hover { transform: translateY(-3px); box-shadow: 0 6px 12px rgba(0,0,0,0.15); }
-.item-card.selected {
-    border-color: var(--primary-color);
-    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.5);
-}
+.item-card.selected { border-color: var(--primary-color); box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.5); }
 .item-icon {
-    width: 100%;
-    aspect-ratio: 4 / 3;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    background-color: #f1f3f5;
-    font-size: 64px;
-    overflow: hidden;
+    width: 100%; aspect-ratio: 4 / 3; display: flex; justify-content: center;
+    align-items: center; background-color: #f1f3f5; font-size: 64px; overflow: hidden;
 }
 .item-icon .fa-folder { color: #ffc107; }
 .item-icon i.fa-file-pdf { color: #e63946; }
@@ -163,114 +129,39 @@ body {
 .item-icon i.fa-file-alt { color: #495057; }
 .item-icon i.fa-file { color: #adb5bd; }
 .item-icon img, .item-icon video { width: 100%; height: 100%; object-fit: cover; }
-.item-info {
-    padding: 12px;
-    border-top: 1px solid var(--border-color);
-    text-align: center;
-    background-color: #fff;
-}
-.item-info h5 {
-    margin: 0;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    font-size: 14px;
-    color: var(--text-color);
-}
+.item-info { padding: 12px; border-top: 1px solid var(--border-color); text-align: center; background-color: #fff; }
+.item-info h5 { margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 14px; color: var(--text-color); }
 
-.item-list-view {
-}
-
-.list-header, .list-item {
-    display: flex;
-    align-items: center;
-    padding: 10px;
-    border-bottom: 1px solid var(--border-color);
-}
-
-.list-header {
-    font-weight: bold;
-    background-color: #e9ecef;
-    border-radius: 5px 5px 0 0;
-}
-
-.list-item {
-    cursor: pointer;
-    transition: background-color 0.2s;
-}
-
-.list-item:hover {
-    background-color: #f1f3f5;
-}
-
-.list-item.selected {
-    background-color: #cfe2ff;
-    border-left: 4px solid var(--primary-color);
-    padding-left: 6px;
-}
-
-.list-icon {
-    width: 30px;
-    text-align: center;
-    margin-right: 15px;
-    font-size: 1.2em;
-}
+.item-list-view {}
+.list-header, .list-item { display: flex; align-items: center; padding: 10px; border-bottom: 1px solid var(--border-color); }
+.list-header { font-weight: bold; background-color: #e9ecef; border-radius: 5px 5px 0 0; }
+.list-item { cursor: pointer; transition: background-color 0.2s; }
+.list-item:hover { background-color: #f1f3f5; }
+.list-item.selected { background-color: #cfe2ff; border-left: 4px solid var(--primary-color); padding-left: 6px; }
+.list-icon { width: 30px; text-align: center; margin-right: 15px; font-size: 1.2em; }
 .list-icon .fa-folder { color: #ffc107; }
+.list-name { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.list-size, .list-date { width: 150px; text-align: right; color: #6c757d; font-size: 0.9em; flex-shrink: 0; }
 
-.list-name {
-    flex: 1;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.list-size, .list-date {
-    width: 150px;
-    text-align: right;
-    color: #6c757d;
-    font-size: 0.9em;
-    flex-shrink: 0;
-}
-
+/* --- 浮動操作欄 --- */
 .action-bar {
-  position: fixed;
-  bottom: 20px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 90%;
-  max-width: 700px;
-  background-color: #212529;
-  color: white;
-  border-radius: 12px;
-  padding: 15px 20px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  box-shadow: 0 -4px 15px rgba(0,0,0,0.2);
-  transition: bottom 0.3s ease-in-out;
-  z-index: 1000;
-  box-sizing: border-box;
+  position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+  width: 90%; max-width: 700px; background-color: #212529; color: white;
+  border-radius: 12px; padding: 15px 20px; display: flex; justify-content: space-between;
+  align-items: center; box-shadow: 0 -4px 15px rgba(0,0,0,0.2);
+  transition: bottom 0.3s ease-in-out; z-index: 1000; box-sizing: border-box;
 }
 .action-bar.visible { bottom: 20px; }
 .action-bar #selectAllBtn { background: #495057; color: white; border: none; padding: 8px 12px; margin-right: 15px; border-radius: 5px; cursor: pointer; flex-shrink: 0; }
 .action-bar #selectionCount { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-grow: 1; }
 .action-bar .actions { display: flex; align-items: center; gap: 8px; }
 .action-bar .actions button { 
-    background: #495057; 
-    color: white; 
-    border: none; 
-    padding: 8px 12px; 
-    border-radius: 5px; 
-    cursor: pointer; 
-    display: inline-flex; 
-    align-items: center; 
-    gap: 5px; 
-    flex-shrink: 0; 
+    background: #495057; color: white; border: none; padding: 8px 12px; border-radius: 5px; 
+    cursor: pointer; display: inline-flex; align-items: center; gap: 5px; flex-shrink: 0; 
     transition: background-color 0.2s, opacity 0.2s; 
 }
 .action-bar .actions button:disabled { background: #343a40; color: #6c757d; cursor: not-allowed; opacity: 0.6; }
 .action-bar .actions button:not(:disabled):hover { opacity: 0.85; }
-
 .action-bar .actions #createFolderBtn { background-color: #17a2b8; }
 .action-bar .actions #textEditBtn { background-color: #007bff; }
 .action-bar .actions #multiSelectBtn { background-color: #6f42c1; }
@@ -281,31 +172,17 @@ body {
 .action-bar .actions #downloadBtn { background-color: #20c997; }
 .action-bar .actions #deleteBtn { background-color: #dc3545; }
 
+/* --- 模態框 --- */
 .modal {
-    display: none;
-    position: fixed;
-    z-index: 1001;
-    left: 0;
-    top: 0;
-    width: 100%;
-    height: 100%;
-    overflow: auto;
-    background-color: rgba(248, 249, 250, 0.95);
-    align-items: center;
-    justify-content: center;
+    display: none; position: fixed; z-index: 1001; left: 0; top: 0;
+    width: 100%; height: 100%; overflow: auto; background-color: rgba(248, 249, 250, 0.95);
+    align-items: center; justify-content: center;
 }
 .modal-content { margin: auto; display: block; max-width: 90%; max-height: 90%; }
 .modal-content img, .modal-content video { width: auto; height: auto; max-width: 100%; max-height: 100%; display: block; margin: 0 auto; }
 .close-button { position: absolute; top: 15px; right: 35px; color: #333; font-size: 40px; font-weight: bold; cursor: pointer; }
-.preview-modal-content {
-    background: transparent;
-    width: auto;
-    max-width: 90vw;
-    max-height: 90vh;
-}
-#previewModal .close-button {
-    color: #333;
-}
+.preview-modal-content { background: transparent; width: auto; max-width: 90vw; max-height: 90vh; }
+#previewModal .close-button { color: #333; }
 .preview-modal-content pre { background-color: #2b2b2b; color: #f1f1f1; padding: 20px; border-radius: 5px; text-align: left; white-space: pre-wrap; word-wrap: break-word; max-height: 90vh; overflow-y: auto; font-family: Consolas, Monaco, 'Andale Mono', 'Ubuntu Mono', monospace; font-size: 14px; }
 .no-preview { color: #212529; text-align: center; }
 .no-preview i { font-size: 48px; margin-bottom: 10px; display: block; }
@@ -353,101 +230,53 @@ body {
 #conflictFileName { font-weight: bold; color: #dc3545; }
 #conflictOptions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 20px; }
 #conflictOptions button { width: auto; padding: 8px 16px; }
+/* admin.html & shares.html specific styles */
+.setting-card { background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: var(--shadow); margin-top: 20px; }
+.setting-card h2 { margin-top: 0; }
+.setting-card select, .setting-card button, .setting-card input { padding: 10px; border-radius: 5px; border: 1px solid #ccc; margin-top: 10px; }
+.setting-card button { background-color: var(--primary-color); color: white; cursor: pointer; }
+.user-table, .shares-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+.user-table th, .user-table td, .shares-table th, .shares-table td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+.user-table th, .shares-table th { background-color: #f2f2f2; }
+.user-table .actions button { margin-right: 5px; padding: 5px 10px; font-size: 12px; }
+.shares-table .share-link { display: flex; align-items: center; gap: 10px; }
+.shares-table .share-link input { flex-grow: 1; padding: 8px; border: 1px solid #ccc; border-radius: 4px; background-color: #f1f3f5; }
+.copy-btn, .cancel-btn { padding: 8px 12px; border: none; border-radius: 5px; cursor: pointer; flex-shrink: 0; }
+.copy-btn { background-color: #007bff; color: white; }
+.cancel-btn { background-color: #dc3545; color: white; }
+
 
 /* --- 手机端优化 --- */
 @media (max-width: 768px) {
-    body {
-        padding: 10px;
-        height: 100vh;
-        box-sizing: border-box;
-    }
-    .main-header {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 15px;
-    }
-    .main-header h1 {
-        font-size: 24px;
-    }
-    .main-header .upload-link-btn {
-        padding: 8px 10px;
-        font-size: 13px;
-        gap: 6px;
-    }
-    .breadcrumb {
-        font-size: 14px;
-        padding: 8px 10px;
-    }
-    .item-grid {
-        grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-        gap: 15px;
-    }
-    .item-icon {
-        font-size: 48px;
-    }
-    .item-info {
-        padding: 8px;
-    }
-    .item-info h5 {
-        font-size: 12px;
-    }
+    body { padding: 10px; }
+    .main-header { flex-direction: column; align-items: flex-start; gap: 15px; }
+    .main-header h1 { font-size: 24px; }
+    .upload-link-btn { padding: 8px 12px; font-size: 14px; gap: 6px; height: auto; }
+    .breadcrumb { font-size: 14px; padding: 8px 10px; }
+    .item-grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 15px; }
+    .item-icon { font-size: 48px; }
+    .item-info { padding: 8px; }
+    .item-info h5 { font-size: 12px; }
 
-    .item-list-view {
-        overflow-x: auto;
-    }
-    .list-header, .list-item {
-        min-width: 500px;
-    }
-    .list-name {
-        flex: 1 1 200px;
-    }
-    .list-size, .list-date {
-        display: block;
-        width: 100px;
-        font-size: 0.8em;
-        flex-shrink: 0;
-    }
+    .item-list-view { overflow-x: auto; }
+    .list-header, .list-item { min-width: 500px; }
+    .list-name { flex: 1 1 200px; }
+    .list-size, .list-date { display: block; width: 100px; font-size: 0.8em; flex-shrink: 0; }
     
     .action-bar {
-        padding: 10px;
-        width: 95%;
-        bottom: 10px;
-        height: auto;
-        flex-wrap: wrap;
-        justify-content: center;
-        gap: 10px;
+        padding: 10px; width: 95%; bottom: 10px; height: auto; flex-wrap: wrap; justify-content: center; gap: 10px;
     }
-    .action-bar #selectionCount {
-        width: 100%; 
-        order: -1;
-        text-align: center;
-        margin-bottom: 5px;
-        font-size: 12px;
-    }
-    .action-bar #selectAllBtn {
-        margin-right: auto;
-    }
-    .action-bar .actions {
-        display: flex;
-        flex-wrap: wrap;
-        justify-content: center;
-        gap: 5px;
-        width: 100%;
-    }
-    .action-bar .actions button {
-        padding: 8px;
-        font-size: 12px;
-    }
-    .action-bar .actions button .button-text,
-    .main-header .upload-link-btn .button-text {
-        display: none;
-    }
+    .action-bar #selectionCount { width: 100%; order: -1; text-align: center; margin-bottom: 5px; font-size: 12px; }
+    .action-bar #selectAllBtn { margin-right: auto; }
+    .action-bar .actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 5px; width: 100%; }
+    .action-bar .actions button { padding: 8px; font-size: 12px; }
+    .action-bar .actions button .button-text, .main-header .upload-link-btn .button-text { display: none; }
 
-    /* 通用按钮缩小规则 */
-    .setting-card button,
-    .user-table .actions button,
-    .copy-btn, .cancel-btn {
-        padding: 6px 10px; 
-        font-size: 12px;   
-    }
+    .setting-card { padding: 15px; }
+    .setting-card button, .setting-card input, .setting-card select { width: 100%; box-sizing: border-box; }
+    .user-table .actions button { padding: 4px 8px; font-size: 11px; }
+
+    .shares-table .share-link { flex-direction: column; align-items: stretch; }
+    .shares-table .share-link input { width: 100%; box-sizing: border-box; }
+    .copy-btn, .cancel-btn { width: 100%; margin-top: 5px; }
 }

@@ -30,6 +30,8 @@
             align-items: center;
             justify-content: space-between;
             flex-shrink: 0;
+            flex-wrap: wrap; /* 允许换行 */
+            gap: 10px; /* 元素间的间距 */
         }
         .editor-header input[type="text"] {
             border: none;
@@ -37,8 +39,8 @@
             font-weight: 500;
             padding: 8px;
             border-radius: 4px;
-            flex-grow: 1;
-            margin-right: 20px;
+            flex-grow: 1; /* 占据可用空间 */
+            min-width: 200px; /* 最小宽度 */
         }
         .editor-header input[type="text"]:focus {
             outline: 2px solid var(--primary-color);
@@ -46,6 +48,7 @@
         .editor-actions {
             display: flex;
             align-items: center;
+            flex-shrink: 0; /* 防止按钮被压缩 */
         }
         .editor-actions button {
             padding: 8px 16px;
@@ -67,11 +70,13 @@
             color: var(--success-color);
             font-weight: bold;
             margin-left: 15px;
+            display: none; /* 默认在小屏幕上隐藏 */
         }
         .editor-container {
             flex-grow: 1;
             padding: 10px;
             box-sizing: border-box;
+            display: flex; /* 使用 flex 布局 */
         }
         #editor {
             width: 100%;
@@ -88,6 +93,49 @@
         #editor:focus {
             outline: none;
         }
+
+        /* --- *** 移动设备适应性修正 开始 *** --- */
+        @media (min-width: 600px) {
+            #saveStatus {
+                display: inline; /* 在较大屏幕上显示 "已储存" 状态 */
+            }
+        }
+        @media (max-width: 599px) {
+            .editor-header {
+                padding: 10px;
+                flex-direction: column; /* 垂直堆叠 */
+                align-items: stretch; /* 元素拉伸以适应容器宽度 */
+            }
+            .editor-header input[type="text"] {
+                margin-right: 0;
+                margin-bottom: 10px; /* 在输入框和按钮之间添加一些间距 */
+                width: 100%;
+                box-sizing: border-box;
+            }
+            .editor-actions {
+                width: 100%;
+                justify-content: space-between; /* 让按钮分布在两端 */
+            }
+            .editor-actions button {
+                flex-grow: 1; /* 让按钮平分空间 */
+                margin-left: 5px;
+                margin-right: 5px;
+            }
+             .editor-actions button:first-child {
+                margin-left: 0;
+            }
+            .editor-actions button:last-child {
+                margin-right: 0;
+            }
+            .editor-container {
+                padding: 5px;
+            }
+            #editor {
+                padding: 10px;
+                font-size: 14px; /* 在小屏幕上稍微减小字体大小 */
+            }
+        }
+        /* --- *** 移动设备适应性修正 结束 *** --- */
     </style>
 </head>
 <body>

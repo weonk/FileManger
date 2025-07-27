@@ -49,7 +49,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const viewSwitchBtn = document.getElementById('view-switch-btn');
     const itemListView = document.getElementById('itemListView');
     const itemListBody = document.getElementById('itemListBody');
-    const collapseBtn = document.getElementById('collapseBtn'); 
+    const collapseBtn = document.getElementById('collapseBtn');
 
     // 状态
     let isMultiSelectMode = false;

@@ -30,8 +30,6 @@
             align-items: center;
             justify-content: space-between;
             flex-shrink: 0;
-            flex-wrap: wrap; 
-            gap: 10px;
         }
         .editor-header input[type="text"] {
             border: none;
@@ -40,7 +38,7 @@
             padding: 8px;
             border-radius: 4px;
             flex-grow: 1;
-            min-width: 200px;
+            margin-right: 20px;
         }
         .editor-header input[type="text"]:focus {
             outline: 2px solid var(--primary-color);
@@ -48,7 +46,6 @@
         .editor-actions {
             display: flex;
             align-items: center;
-            flex-shrink: 0;
         }
         .editor-actions button {
             padding: 8px 16px;
@@ -56,8 +53,7 @@
             border-radius: 5px;
             cursor: pointer;
             margin-left: 10px;
-            font-size: 14px; /* 默认字体大小 */
-            transition: all 0.2s ease-in-out;
+            font-size: 14px;
         }
         #saveBtn {
             background-color: var(--primary-color);
@@ -76,7 +72,6 @@
             flex-grow: 1;
             padding: 10px;
             box-sizing: border-box;
-            display: flex;
         }
         #editor {
             width: 100%;
@@ -92,42 +87,6 @@
         }
         #editor:focus {
             outline: none;
-        }
-
-        /* --- *** 移动设备适应性修正 *** --- */
-        @media (max-width: 600px) {
-            .editor-header {
-                padding: 10px;
-                flex-direction: column;
-                align-items: stretch;
-            }
-            .editor-header input[type="text"] {
-                margin-right: 0;
-                margin-bottom: 10px;
-                width: 100%;
-                box-sizing: border-box;
-            }
-            .editor-actions {
-                width: 100%;
-                justify-content: space-between;
-                gap: 10px; 
-            }
-            .editor-actions button {
-                flex-grow: 1;
-                margin: 0;
-                padding: 10px 8px; /* 调整内边距使其更适合小屏幕 */
-                font-size: 14px; /* 明确为按钮设置较小的字体大小 */
-            }
-            #saveStatus {
-                 display: none;
-            }
-            .editor-container {
-                padding: 5px;
-            }
-            #editor {
-                padding: 10px;
-                font-size: 14px;
-            }
         }
     </style>
 </head>
@@ -207,16 +166,21 @@
                     setTimeout(() => {
                         saveStatus.textContent = '';
                     }, 2000);
-                    
+
+                    // --- *** 关键修正 开始 *** ---
+                    // 无论是新建还是编辑，只要储存成功，就用伺服器回传的最新 fileId 更新本地状态
                     if (response.data.success && response.data.fileId) {
                         fileId = response.data.fileId;
-                        mode = 'edit'; 
+                        mode = 'edit'; // 储存后一律变为编辑模式
                         
+                        // 更新浏览器地址栏的 URL，以反映最新的 fileId
                         const newUrl = `${window.location.pathname}?mode=edit&fileId=${fileId}`;
                         history.pushState({}, '', newUrl);
 
+                        // 同步更新输入框中的档名，以防档名被自动加上 .txt
                         fileNameInput.value = fileName;
                     }
+                    // --- *** 关键修正 结束 *** ---
 
                 } catch (error) {
                     alert('储存失败：' + (error.response?.data?.message || '伺服器错误'));

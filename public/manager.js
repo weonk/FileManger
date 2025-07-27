@@ -29,7 +29,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const conflictModal = document.getElementById('conflictModal');
     const conflictFileName = document.getElementById('conflictFileName');
     const conflictOptions = document.getElementById('conflictOptions');
-    // --- *** 新增資料夾衝突對話框元素 *** ---
     const folderConflictModal = document.getElementById('folderConflictModal');
     const folderConflictName = document.getElementById('folderConflictName');
     const folderConflictOptions = document.getElementById('folderConflictOptions');
@@ -71,6 +70,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const i = Math.floor(Math.log(bytes) / Math.log(k));
         return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
     };
+
     function showNotification(message, type = 'info', container = null) {
         const notification = document.createElement('div');
         notification.className = `notification ${type}`;
@@ -90,6 +90,48 @@ document.addEventListener('DOMContentLoaded', () => {
             }, 5000);
         }
     }
+    
+    // --- *** 核心修正：將上傳邏輯獨立為一個函式 *** ---
+    const performUpload = async (formData, isDrag = false) => {
+        const progressBar = isDrag ? dragUploadProgressBar : document.getElementById('progressBar');
+        const progressArea = isDrag ? dragUploadProgressArea : document.getElementById('progressArea');
+        const submitBtn = isDrag ? null : uploadSubmitBtn;
+        const notificationContainer = isDrag ? null : uploadNotificationArea;
+    
+        progressArea.style.display = 'block';
+        progressBar.style.width = '0%';
+        progressBar.textContent = '0%';
+        if (submitBtn) submitBtn.disabled = true;
+    
+        try {
+            const res = await axios.post('/upload', formData, {
+                onUploadProgress: p => {
+                    const percent = Math.round((p.loaded * 100) / p.total);
+                    progressBar.style.width = percent + '%';
+                    progressBar.textContent = percent + '%';
+                }
+            });
+            if (res.data.success) {
+                if (!isDrag) {
+                    uploadModal.style.display = 'none';
+                }
+                showNotification('上传成功！', 'success');
+                // 清空 input 的值
+                fileInput.value = '';
+                folderInput.value = '';
+                loadFolderContents(currentFolderId);
+            } else {
+                showNotification('上传失败', 'error', notificationContainer);
+            }
+        } catch (error) {
+            showNotification('上传失败: ' + (error.response?.data?.message || '伺服器错误'), 'error', notificationContainer);
+        } finally {
+            if (submitBtn) submitBtn.disabled = false;
+            setTimeout(() => { progressArea.style.display = 'none'; }, 2000);
+        }
+    };
+
+
     const loadFolderContents = async (folderId) => {
         try {
             isSearchMode = false;
@@ -152,69 +194,24 @@ document.addEventListener('DOMContentLoaded', () => {
         const parentGrid = itemGrid;
         const parentList = itemListBody;
 
-        const allNewItems = [...folders, ...files];
-        const newIdSet = new Set(allNewItems.map(item => String(item.id)));
+        parentGrid.innerHTML = '';
+        parentList.innerHTML = '';
+
+        const allItems = [...folders, ...files];
         
-        let existingGridElements = new Map();
-        parentGrid.querySelectorAll('.item-card').forEach(el => existingGridElements.set(el.dataset.id, el));
+        if (allItems.length === 0) {
+            if (currentView === 'grid') parentGrid.innerHTML = isSearchMode ? '<p>找不到符合条件的档案。</p>' : '<p>这个资料夹是空的。</p>';
+            else parentList.innerHTML = isSearchMode ? '<div class="list-item"><p>找不到符合条件的档案。</p></div>' : '<div class="list-item"><p>这个资料夾是空的。</p></div>';
+            return;
+        }
 
-        let existingListElements = new Map();
-        parentList.querySelectorAll('.list-item').forEach(el => existingListElements.set(el.dataset.id, el));
-
-        // 更新或添加项目
-        allNewItems.forEach(item => {
-            const itemIdStr = String(item.id);
-
-            if (existingGridElements.has(itemIdStr)) {
-                const el = existingGridElements.get(itemIdStr);
-                const oldName = el.querySelector('h5').textContent;
-                if (oldName !== (item.name === '/' ? '根目录' : item.name)) {
-                    el.querySelector('h5').textContent = item.name;
-                    el.querySelector('h5').title = item.name;
-                }
-                el.classList.toggle('selected', selectedItems.has(itemIdStr));
-            } else {
+        allItems.forEach(item => {
+            if (currentView === 'grid') {
                 parentGrid.appendChild(createItemCard(item));
-            }
-
-            if (existingListElements.has(itemIdStr)) {
-                const el = existingListElements.get(itemIdStr);
-                const oldName = el.querySelector('.list-name').textContent;
-                if (oldName !== (item.name === '/' ? '根目录' : item.name)) {
-                    el.querySelector('.list-name').textContent = item.name;
-                    el.querySelector('.list-name').title = item.name;
-                }
-                if (item.type === 'file') {
-                    el.querySelector('.list-size').textContent = formatBytes(item.size);
-                    el.querySelector('.list-date').textContent = new Date(item.date).toLocaleDateString();
-                }
-                 el.classList.toggle('selected', selectedItems.has(itemIdStr));
             } else {
                 parentList.appendChild(createListItem(item));
             }
         });
-
-        // 移除不存在的项目
-        existingGridElements.forEach((el, id) => {
-            if (!newIdSet.has(id)) {
-                el.remove();
-            }
-        });
-        existingListElements.forEach((el, id) => {
-            if (!newIdSet.has(id)) {
-                el.remove();
-            }
-        });
-
-        if (allNewItems.length === 0) {
-            if(currentView === 'grid') parentGrid.innerHTML = isSearchMode ? '<p>找不到符合条件的档案。</p>' : '<p>这个资料夹是空的。</p>';
-            else parentList.innerHTML = isSearchMode ? '<div class="list-item"><p>找不到符合条件的档案。</p></div>' : '<div class="list-item"><p>这个资料夾是空的。</p></div>';
-        } else {
-            const emptyGridMsg = parentGrid.querySelector('p');
-            if(emptyGridMsg) emptyGridMsg.remove();
-            const emptyListMsg = parentList.querySelector('.list-item p');
-            if(emptyListMsg) emptyListMsg.parentElement.remove();
-        }
     };
 
     const createItemCard = (item) => {
@@ -340,91 +337,7 @@ document.addEventListener('DOMContentLoaded', () => {
             console.error('加载资料夹列表失败', error);
         }
     };
-    const uploadFiles = async (files, targetFolderId, isDrag = false) => {
-        if (files.length === 0) return;
-
-        const oversizedFiles = Array.from(files).filter(file => file.size > MAX_TELEGRAM_SIZE);
-        if (oversizedFiles.length > 0) {
-            const fileNames = oversizedFiles.map(f => `"${f.name}"`).join(', ');
-            showNotification(`档案 ${fileNames} 过大，超过 ${formatBytes(MAX_TELEGRAM_SIZE)} 的限制。`, 'error', !isDrag ? uploadNotificationArea : null);
-            return;
-        }
-
-        let existenceData = [];
-        try {
-            const res = await axios.post('/api/check-existence', { fileNames: Array.from(files).map(f => f.name), folderId: targetFolderId });
-            existenceData = res.data.files;
-        } catch (error) {
-            showNotification('检查档案是否存在时出错。', 'error');
-            return;
-        }
-
-        const filesToUpload = [];
-        const filesToOverwrite = [];
-
-        for (const file of Array.from(files)) {
-            const existing = existenceData.find(f => f.name === file.name && f.exists);
-            if (existing) {
-                if (confirm(`档案 "${file.name}" 已存在。您要覆盖它吗？`)) {
-                    filesToOverwrite.push({ name: file.name, messageId: existing.messageId });
-                    filesToUpload.push(file);
-                }
-            } else {
-                filesToUpload.push(file);
-            }
-        }
-
-        if (filesToUpload.length === 0) {
-            showNotification('已取消，没有档案被上传。', 'info');
-            return;
-        }
-
-        const formData = new FormData();
-        filesToUpload.forEach(file => {
-            formData.append('files', file);
-        });
-        formData.append('folderId', targetFolderId);
-        formData.append('overwrite', JSON.stringify(filesToOverwrite));
-
-        const captionInput = document.getElementById('uploadCaption');
-        if (captionInput && captionInput.value && !isDrag) {
-            formData.append('caption', captionInput.value);
-        }
-
-        const progressBar = isDrag ? dragUploadProgressBar : document.getElementById('progressBar');
-        const progressArea = isDrag ? dragUploadProgressArea : document.getElementById('progressArea');
-
-        progressArea.style.display = 'block';
-        progressBar.style.width = '0%';
-        progressBar.textContent = '0%';
-
-        if(uploadSubmitBtn) uploadSubmitBtn.disabled = true;
-
-        try {
-            const res = await axios.post('/upload', formData, {
-                onUploadProgress: p => {
-                    const percent = Math.round((p.loaded * 100) / p.total);
-                    progressBar.style.width = percent + '%';
-                    progressBar.textContent = percent + '%';
-                }
-            });
-            if (res.data.success) {
-                if (!isDrag) {
-                    uploadModal.style.display = 'none';
-                }
-                showNotification('上传成功！', 'success');
-                loadFolderContents(currentFolderId);
-            } else {
-                showNotification('上传失败', 'error', !isDrag ? uploadNotificationArea : null);
-            }
-        } catch (error) {
-            showNotification('上传失败: ' + (error.response?.data?.message || '伺服器错误'), 'error', !isDrag ? uploadNotificationArea : null);
-        } finally {
-            if(uploadSubmitBtn) uploadSubmitBtn.disabled = false;
-            setTimeout(() => { progressArea.style.display = 'none'; }, 2000);
-        }
-    };
-
+    
     const switchView = (view) => {
         if (view === 'grid') {
             itemGrid.style.display = 'grid';
@@ -521,7 +434,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (uploadForm) {
         uploadForm.addEventListener('submit', async (e) => {
             e.preventDefault();
-    
+
             const filesToProcess = folderInput.files.length > 0 ? folderInput.files : fileInput.files;
             if (filesToProcess.length === 0) {
                 showNotification('请选择档案或资料夹。', 'error', uploadNotificationArea);
@@ -531,55 +444,22 @@ document.addEventListener('DOMContentLoaded', () => {
             const targetFolderId = folderSelect.value;
             const formData = new FormData();
             formData.append('folderId', targetFolderId);
-    
-            // 關鍵改動：為每個檔案附加其相對路徑
+
             for (const file of filesToProcess) {
                 formData.append('files', file);
-                // 如果是資料夾上傳，附加相對路徑；如果是單檔上傳，則附加檔名
                 formData.append('relativePaths', file.webkitRelativePath || file.name);
             }
-    
+
             const captionInput = document.getElementById('uploadCaption');
             if (captionInput && captionInput.value) {
                 formData.append('caption', captionInput.value);
             }
-    
-            // 接下來的程式碼與 uploadFiles 函式大部分相同，我們直接將其整合於此
-            const progressBar = document.getElementById('progressBar');
-            const progressArea = document.getElementById('progressArea');
-    
-            progressArea.style.display = 'block';
-            progressBar.style.width = '0%';
-            progressBar.textContent = '0%';
-            uploadSubmitBtn.disabled = true;
-    
-            try {
-                const res = await axios.post('/upload', formData, {
-                    onUploadProgress: p => {
-                        const percent = Math.round((p.loaded * 100) / p.total);
-                        progressBar.style.width = percent + '%';
-                        progressBar.textContent = percent + '%';
-                    }
-                });
-                if (res.data.success) {
-                    uploadModal.style.display = 'none';
-                    showNotification('上传成功！', 'success');
-                    // 清空 input 的值，以便下次可以選擇同一個資料夾
-                    fileInput.value = '';
-                    folderInput.value = '';
-                    loadFolderContents(currentFolderId);
-                } else {
-                    showNotification('上传失败', 'error', uploadNotificationArea);
-                }
-            } catch (error) {
-                showNotification('上传失败: ' + (error.response?.data?.message || '伺服器错误'), 'error', uploadNotificationArea);
-            } finally {
-                uploadSubmitBtn.disabled = false;
-                setTimeout(() => { progressArea.style.display = 'none'; }, 2000);
-            }
+
+            await performUpload(formData, false);
         });
     }
-
+    
+    // --- *** 核心修正：更新拖拽上传逻辑 *** ---
     if (dropZone) {
         ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
             dropZone.addEventListener(eventName, (e) => {
@@ -596,7 +476,7 @@ document.addEventListener('DOMContentLoaded', () => {
             dropZone.addEventListener(eventName, () => dropZone.classList.remove('dragover'));
         });
 
-        dropZone.addEventListener('drop', (e) => {
+        dropZone.addEventListener('drop', async (e) => {
             const files = Array.from(e.dataTransfer.files);
             let hasFolder = false;
             if (e.dataTransfer.items) {
@@ -610,12 +490,18 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             if (hasFolder) {
-                showNotification('不支援拖拽资料夹上传，请选择档案。', 'error');
+                showNotification('不支援拖拽资料夹上传，请使用上传按钮选择资料夹。', 'error');
                 return;
             }
 
             if (files.length > 0) {
-                uploadFiles(files, currentFolderId, true);
+                const formData = new FormData();
+                formData.append('folderId', currentFolderId);
+                files.forEach(file => {
+                    formData.append('files', file);
+                    formData.append('relativePaths', file.name); // 拖拽单个文件时，相对路径就是其档名
+                });
+                await performUpload(formData, true);
             }
         });
     }

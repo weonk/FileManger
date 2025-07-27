@@ -107,7 +107,7 @@
   <div id="folderConflictModal" class="modal">
     <div class="move-modal-content">
         <h3>资料夹冲突</h3>
-        <p>目标位置已存在同名资料夹：</p>
+        <p>目标位置已存在同名资料夾：</p>
         <p><b id="folderConflictName"></b></p>
         <p>您希望如何处理？</p>
         <div id="folderConflictOptions">
@@ -154,26 +154,24 @@
   </div>
   
   <div class="action-bar" id="actionBar">
-      <div class="action-bar-content">
-          <div class="action-bar-top-row">
-              <div class="action-bar-info-left">
-                  <button id="selectAllBtn" title="全选/取消全选"><i class="fas fa-check-double"></i></button>
-                  <span id="selectionCount">已选择 0 个项目</span>
-              </div>
+      <div class="action-bar-top-row">
+          <div class="action-bar-info-left">
+              <button id="selectAllBtn" title="全选/取消全选"><i class="fas fa-check-double"></i></button>
+              <span id="selectionCount">已选择 0 个项目</span>
           </div>
-          <div class="actions">
-              <button id="createFolderBtn" title="建立资料夾"><i class="fas fa-folder-plus"></i></button>
-              <button id="textEditBtn" title="新建文字档"><i class="fas fa-file-alt"></i></button>
-              <button id="multiSelectBtn" title="多选模式"><i class="fas fa-tasks"></i></button>
-              <button id="previewBtn" title="预览" disabled><i class="fas fa-eye"></i></button>
-              <button id="moveBtn" title="移动" disabled><i class="fas fa-people-arrows"></i></button>
-              <button id="shareBtn" title="分享" disabled><i class="fas fa-share-alt"></i></button>
-              <button id="renameBtn" title="重命名" disabled><i class="fas fa-i-cursor"></i></button>
-              <button id="downloadBtn" title="下载" disabled><i class="fas fa-download"></i></button>
-              <button id="deleteBtn" title="删除" disabled><i class="fas fa-trash-alt"></i></button>
-          </div>
+          <button id="collapseBtn" title="收起/展开"><i class="fas fa-chevron-down"></i></button>
       </div>
-      <button id="collapseBtn" title="收起/展开"><i class="fas fa-chevron-down"></i></button>
+      <div class="actions">
+          <button id="createFolderBtn" title="建立资料夾"><i class="fas fa-folder-plus"></i></button>
+          <button id="textEditBtn" title="新建文字档"><i class="fas fa-file-alt"></i></button>
+          <button id="multiSelectBtn" title="多选模式"><i class="fas fa-tasks"></i></button>
+          <button id="previewBtn" title="预览" disabled><i class="fas fa-eye"></i></button>
+          <button id="moveBtn" title="移动" disabled><i class="fas fa-people-arrows"></i></button>
+          <button id="shareBtn" title="分享" disabled><i class="fas fa-share-alt"></i></button>
+          <button id="renameBtn" title="重命名" disabled><i class="fas fa-i-cursor"></i></button>
+          <button id="downloadBtn" title="下载" disabled><i class="fas fa-download"></i></button>
+          <button id="deleteBtn" title="删除" disabled><i class="fas fa-trash-alt"></i></button>
+      </div>
   </div>
 
   <script src="/manager.js"></script>

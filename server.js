@@ -220,26 +220,45 @@ app.post('/api/admin/delete-user', requireAdmin, async (req, res) => {
 
 
 app.post('/upload', requireLogin, upload.array('files'), fixFileNameEncoding, async (req, res) => {
-    if (!req.files || req.files.length === 0) return res.status(400).json({ success: false, message: '没有选择文件' });
-    
-    const folderId = req.body.folderId ? parseInt(req.body.folderId, 10) : 1;
+    if (!req.files || req.files.length === 0) {
+        return res.status(400).json({ success: false, message: '没有选择文件' });
+    }
+
+    const initialFolderId = parseInt(req.body.folderId, 10);
     const userId = req.session.userId;
     const storage = storageManager.getStorage();
+    const relativePaths = req.body.relativePaths;
 
-    const overwriteInfo = req.body.overwrite ? JSON.parse(req.body.overwrite) : [];
-    if (overwriteInfo.length > 0) {
-        const filesToDelete = await data.getFilesByIds(overwriteInfo.map(f => f.messageId), userId);
-        if (filesToDelete.length > 0) {
-            await storage.remove(filesToDelete, userId);
-        }
-    }
-    
     const results = [];
-    for (const file of req.files) {
-        const result = await storage.upload(file.buffer, file.originalname, file.mimetype, userId, folderId, req.body.caption || '');
-        results.push(result);
+    try {
+        for (let i = 0; i < req.files.length; i++) {
+            const file = req.files[i];
+            const relativePath = relativePaths[i];
+
+            const pathParts = relativePath.split('/');
+            const fileName = pathParts.pop();
+            const folderPathParts = pathParts;
+
+            // 遞迴地找到或建立目標資料夾
+            const targetFolderId = await data.resolvePathToFolderId(initialFolderId, folderPathParts, userId);
+            
+            // 檢查檔案衝突
+            const conflict = await data.findFileInFolder(fileName, targetFolderId, userId);
+            if (conflict) {
+                // 簡單起見，這裡我們直接跳過已存在的檔案。
+                // 您也可以擴充前端邏輯，讓使用者選擇是否覆蓋。
+                console.log(`檔案 "${relativePath}" 已存在於目標資料夾，已略過。`);
+                continue; 
+            }
+
+            const result = await storage.upload(file.buffer, fileName, file.mimetype, userId, targetFolderId, req.body.caption || '');
+            results.push(result);
+        }
+        res.json({ success: true, results });
+    } catch (error) {
+        console.error("Upload processing error:", error);
+        res.status(500).json({ success: false, message: '处理上传时发生错误: ' + error.message });
     }
-    res.json({ success: true, results });
 });
 
 // --- *** 完整替换 *** ---
@@ -267,7 +286,7 @@ app.post('/api/text-file', requireLogin, async (req, res) => {
         } else if (mode === 'create' && folderId) {
              const conflict = await data.checkFullConflict(fileName, folderId, userId);
             if (conflict) {
-                return res.status(409).json({ success: false, message: '同目录下已存在同名档案或资料夹。' });
+                return res.status(409).json({ success: false, message: '同目录下已存在同名档案或资料夾。' });
             }
             result = await storage.upload(contentBuffer, fileName, 'text/plain', userId, folderId);
         } else {

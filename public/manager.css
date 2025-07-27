@@ -346,6 +346,12 @@ body {
 #conflictOptions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 20px; }
 #conflictOptions button { width: auto; padding: 8px 16px; }
 
+/* --- 新增的滾動條樣式 --- */
+#itemGrid, #itemListView {
+    height: calc(100vh - 250px); /* 減去頂部和底部UI元素的高度 */
+    overflow-y: auto; /* 當內容超出時，顯示垂直滾動條 */
+}
+
 /* --- 手机端优化 --- */
 @media (max-width: 768px) {
     body {

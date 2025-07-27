@@ -6,64 +6,6 @@
     <title>共享管理</title>
     <link rel="stylesheet" href="/vendor/fontawesome/css/all.min.css">
     <link rel="stylesheet" href="/manager.css">
-    <style>
-        body {
-            padding: 20px;
-        }
-        .table-container { 
-            background-color: white; 
-            padding: 20px; 
-            border-radius: 8px; 
-            box-shadow: var(--shadow);
-            overflow-x: auto;
-        }
-        table { 
-            width: 100%; 
-            border-collapse: collapse; 
-            margin-top: 20px;
-        }
-        th, td { 
-            padding: 12px 15px; 
-            text-align: left; 
-            border-bottom: 1px solid #dee2e6;
-        }
-        th {
-            background-color: #f8f9fa;
-        }
-        .file-name {
-            max-width: 300px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-        .share-link {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        .share-link input {
-            flex-grow: 1;
-            padding: 8px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            background-color: #f1f3f5;
-        }
-        .copy-btn, .cancel-btn {
-            padding: 8px 12px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            flex-shrink: 0;
-        }
-        .copy-btn {
-            background-color: #007bff;
-            color: white;
-        }
-        .cancel-btn {
-            background-color: #dc3545;
-            color: white;
-        }
-    </style>
 </head>
 <body>
     <div class="container">
@@ -72,9 +14,9 @@
             <a href="/" class="upload-link-btn"><i class="fas fa-arrow-left"></i> 返回文件管理器</a>
         </header>
 
-        <div class="table-container">
+        <div class="table-container" style="background-color: white; padding: 20px; border-radius: 8px; box-shadow: var(--shadow); overflow-x: auto;">
             <p id="loading-message">正在加载分享列表...</p>
-            <table id="sharesTable" style="display:none;">
+            <table id="sharesTable" class="shares-table" style="display:none;">
                 <thead>
                     <tr>
                         <th>文件名</th>

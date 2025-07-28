@@ -2,7 +2,7 @@ const db = require('./database.js');
 const crypto = require('crypto');
 const path = require('path');
 
-// --- 使用者管理 ---
+// --- 用户管理 ---
 function createUser(username, hashedPassword) {
     return new Promise((resolve, reject) => {
         const sql = `INSERT INTO users (username, password, is_admin) VALUES (?, ?, 0)`;
@@ -51,7 +51,6 @@ function listNormalUsers() {
     });
 }
 
-// 新增：取得所有使用者（包含管理员）
 function listAllUsers() {
     return new Promise((resolve, reject) => {
         const sql = `SELECT id, username FROM users ORDER BY username ASC`;
@@ -74,7 +73,7 @@ function deleteUser(userId) {
 }
 
 
-// --- 档案和资料夹搜寻 ---
+// --- 文件和文件夹搜索 ---
 function searchItems(query, userId) {
     return new Promise((resolve, reject) => {
         const searchQuery = `%${query}%`;
@@ -104,7 +103,7 @@ function searchItems(query, userId) {
     });
 }
 
-// --- 资料夹与档案操作 ---
+// --- 文件夹与文件操作 ---
 function getItemsByIds(itemIds, userId) {
     return new Promise((resolve, reject) => {
         if (!itemIds || itemIds.length === 0) return resolve([]);
@@ -219,7 +218,7 @@ function createFolder(name, parentId, userId) {
     return new Promise((resolve, reject) => {
         db.run(sql, [name, parentId, userId], function (err) {
             if (err) {
-                if (err.message.includes('UNIQUE')) return reject(new Error('同目录下已存在同名资料夹。'));
+                if (err.message.includes('UNIQUE')) return reject(new Error('同目录下已存在同名文件夹。'));
                 return reject(err);
             }
             resolve({ success: true, id: this.lastID });
@@ -271,7 +270,7 @@ async function moveItem(itemId, itemType, targetFolderId, userId, options = {}) 
 
     if (itemType === 'folder') {
         const folderToMove = (await getItemsByIds([itemId], userId))[0];
-        if (!folderToMove) throw new Error(`找不到来源资料夹 ID: ${itemId}`);
+        if (!folderToMove) throw new Error(`找不到来源文件夹 ID: ${itemId}`);
 
         const existingFolder = await findFolderByName(folderToMove.name, targetFolderId, userId);
 
@@ -282,7 +281,7 @@ async function moveItem(itemId, itemType, targetFolderId, userId, options = {}) 
                 for (const child of children) {
                     await moveItem(child.id, child.type, existingFolder.id, userId, options);
                 }
-                await deleteSingleFolder(itemId, userId); // 删除空的来源资料夹
+                await deleteSingleFolder(itemId, userId); // 删除空的来源文件夹
             }
         } else {
             // 没有冲突，直接移动
@@ -290,7 +289,7 @@ async function moveItem(itemId, itemType, targetFolderId, userId, options = {}) 
         }
     } else { // file
         const fileToMove = (await getFilesByIds([itemId], userId))[0];
-        if (!fileToMove) throw new Error(`找不到来源档案 ID: ${itemId}`);
+        if (!fileToMove) throw new Error(`找不到来源文件 ID: ${itemId}`);
         
         const conflict = await findFileInFolder(fileToMove.fileName, targetFolderId, userId);
         
@@ -461,7 +460,7 @@ function renameFolder(folderId, newFolderName, userId) {
     return new Promise((resolve, reject) => {
         db.run(sql, [newFolderName, folderId, userId], function(err) {
             if (err) reject(err);
-            else if (this.changes === 0) resolve({ success: false, message: '资料夹未找到。' });
+            else if (this.changes === 0) resolve({ success: false, message: '文件夹未找到。' });
             else resolve({ success: true });
         });
     });
@@ -595,27 +594,43 @@ function checkFolderConflict(folderNames, targetFolderId, userId) {
     });
 }
 
+// --- 核心修正：解决并发上传时的文件夹创建竞争问题 ---
 async function resolvePathToFolderId(startFolderId, pathParts, userId) {
     let currentParentId = startFolderId;
     for (const part of pathParts) {
-        if (!part) continue;
+        if (!part) continue; // 忽略空路径部分
 
-        let folder = await new Promise((resolve, reject) => {
-            const sql = `SELECT id FROM folders WHERE name = ? AND parent_id = ? AND user_id = ?`;
-            db.get(sql, [part, currentParentId, userId], (err, row) => err ? reject(err) : resolve(row));
-        });
+        let folder = await findFolderByName(part, currentParentId, userId);
 
         if (folder) {
             currentParentId = folder.id;
         } else {
-            const newFolder = await new Promise((resolve, reject) => {
-                const sql = `INSERT INTO folders (name, parent_id, user_id) VALUES (?, ?, ?)`;
-                db.run(sql, [part, currentParentId, userId], function(err) {
-                    if (err) return reject(err);
-                    resolve({ id: this.lastID });
+            try {
+                // 尝试创建文件夹
+                const newFolder = await new Promise((resolve, reject) => {
+                    const sql = `INSERT INTO folders (name, parent_id, user_id) VALUES (?, ?, ?)`;
+                    db.run(sql, [part, currentParentId, userId], function(err) {
+                        if (err) return reject(err);
+                        resolve({ id: this.lastID });
+                    });
                 });
-            });
-            currentParentId = newFolder.id;
+                currentParentId = newFolder.id;
+            } catch (error) {
+                // 如果是唯一性约束错误，说明另一个并发任务刚刚创建了它
+                if (error.code === 'SQLITE_CONSTRAINT') {
+                    // 我们安全地重新查询一次来获取ID
+                    const existingFolder = await findFolderByName(part, currentParentId, userId);
+                    if (existingFolder) {
+                        currentParentId = existingFolder.id;
+                    } else {
+                        // 这是一个意料之外的严重错误
+                        throw new Error(`在约束冲突后，创建或查找目录 '${part}' 失败。`);
+                    }
+                } else {
+                    // 重新抛出其他类型的错误
+                    throw error;
+                }
+            }
         }
     }
     return currentParentId;

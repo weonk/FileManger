@@ -1,32 +1,56 @@
 const { createClient } = require('webdav');
 const data = require('../data.js');
-// const storageManager = require('./index'); // REMOVED FROM HERE
+const db = require('../database.js'); // 引入 database 以便查詢
 
 let clients = {};
 
 function getClient(userId) {
-    const storageManager = require('./index'); // MOVED HERE
+    // 透過延遲載入來避免循環依賴
+    const storageManager = require('./index'); 
     const config = storageManager.readConfig();
     const userWebdavConfig = config.webdav.find(c => c.userId === userId);
     if (!userWebdavConfig) {
         throw new Error('找不到該使用者的 WebDAV 設定');
     }
 
-    // Invalidate client cache if config changed, for simplicity we create a new one each time for now.
-    clients[userId] = createClient(userWebdavConfig.url, {
-        username: userWebdavConfig.username,
-        password: userWebdavConfig.password
+    // 如果設定有變更，重新建立客戶端連線
+    const clientKey = `${userId}-${userWebdavConfig.url}-${userWebdavConfig.username}`;
+    if (!clients[clientKey]) {
+        clients[clientKey] = createClient(userWebdavConfig.url, {
+            username: userWebdavConfig.username,
+            password: userWebdavConfig.password
+        });
+    }
+    return clients[clientKey];
+}
+
+async function getFolderPath(folderId, userId) {
+    // 修正：正確找到使用者的根目錄 ID
+    const userRoot = await new Promise((resolve, reject) => {
+        db.get("SELECT id FROM folders WHERE user_id = ? AND parent_id IS NULL", [userId], (err, row) => {
+            if (err) return reject(err);
+            if (!row) return reject(new Error('找不到使用者根目錄'));
+            resolve(row);
+        });
     });
+
+    if (folderId === userRoot.id) return '/';
     
-    return clients[userId];
+    const pathParts = await data.getFolderPath(folderId, userId);
+    // 移除根目錄部分，因為 WebDAV 路徑是相對的
+    return '/' + pathParts.slice(1).map(p => p.name).join('/');
 }
 
 async function upload(fileBuffer, fileName, mimetype, userId, folderId) {
     const client = getClient(userId);
     const folderPath = await getFolderPath(folderId, userId);
-    const remotePath = `${folderPath}/${fileName}`;
+    const remotePath = (folderPath === '/' ? '' : folderPath) + '/' + fileName;
 
-    await client.putFileContents(remotePath, fileBuffer, { overwrite: true });
+    const success = await client.putFileContents(remotePath, fileBuffer, { overwrite: true });
+
+    if (!success) {
+        throw new Error('WebDAV putFileContents 操作失敗');
+    }
 
     const stat = await client.stat(remotePath);
     const messageId = Date.now() + Math.floor(Math.random() * 1000);
@@ -36,7 +60,7 @@ async function upload(fileBuffer, fileName, mimetype, userId, folderId) {
         fileName,
         mimetype,
         size: stat.size,
-        file_id: remotePath,
+        file_id: remotePath, // 儲存相對路徑
         date: new Date(stat.lastmod).getTime(),
     }, folderId, userId, 'webdav');
     
@@ -49,7 +73,10 @@ async function remove(files, userId) {
         try {
             await client.deleteFile(file.file_id);
         } catch (error) {
-            console.warn(`刪除 WebDAV 檔案失敗: ${file.file_id}`, error.message);
+            // 如果檔案在遠端不存在，也視為成功
+            if (error.response && error.response.status !== 404) {
+                 console.warn(`刪除 WebDAV 檔案失敗: ${file.file_id}`, error.message);
+            }
         }
     }
     await data.deleteFilesByIds(files.map(f => f.message_id), userId);
@@ -59,22 +86,6 @@ async function remove(files, userId) {
 async function getUrl(file_id, userId) {
     const client = getClient(userId);
     return client.getFileDownloadLink(file_id);
-}
-
-async function getFolderPath(folderId, userId) {
-    // Find the root folder ID for the user first
-    const userRoot = await new Promise((resolve, reject) => {
-        db.get("SELECT id FROM folders WHERE user_id = ? AND parent_id IS NULL", [userId], (err, row) => {
-            if (err) return reject(err);
-            resolve(row);
-        });
-    });
-
-    if (!userRoot || folderId === userRoot.id) return '/';
-    
-    const pathParts = await data.getFolderPath(folderId, userId);
-    // Slice(1) to remove the root folder, as WebDAV path doesn't need it
-    return '/' + pathParts.slice(1).map(p => p.name).join('/');
 }
 
 module.exports = { upload, remove, getUrl, type: 'webdav' };

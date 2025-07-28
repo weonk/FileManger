@@ -627,7 +627,7 @@ module.exports = {
     findUserById,
     changeUserPassword,
     listNormalUsers,
-    listAllUsers, // 匯出新函式
+    listAllUsers,
     deleteUser,
     searchItems,
     getFolderContents,

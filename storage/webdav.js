@@ -1,22 +1,23 @@
 const { createClient } = require('webdav');
 const data = require('../data.js');
-const storageManager = require('./index');
+// const storageManager = require('./index'); // REMOVED FROM HERE
 
 let clients = {};
 
 function getClient(userId) {
+    const storageManager = require('./index'); // MOVED HERE
     const config = storageManager.readConfig();
     const userWebdavConfig = config.webdav.find(c => c.userId === userId);
     if (!userWebdavConfig) {
         throw new Error('找不到該使用者的 WebDAV 設定');
     }
 
-    if (!clients[userId]) {
-        clients[userId] = createClient(userWebdavConfig.url, {
-            username: userWebdavConfig.username,
-            password: userWebdavConfig.password
-        });
-    }
+    // Invalidate client cache if config changed, for simplicity we create a new one each time for now.
+    clients[userId] = createClient(userWebdavConfig.url, {
+        username: userWebdavConfig.username,
+        password: userWebdavConfig.password
+    });
+    
     return clients[userId];
 }
 
@@ -61,9 +62,19 @@ async function getUrl(file_id, userId) {
 }
 
 async function getFolderPath(folderId, userId) {
-    if (folderId === 1) return '/';
+    // Find the root folder ID for the user first
+    const userRoot = await new Promise((resolve, reject) => {
+        db.get("SELECT id FROM folders WHERE user_id = ? AND parent_id IS NULL", [userId], (err, row) => {
+            if (err) return reject(err);
+            resolve(row);
+        });
+    });
+
+    if (!userRoot || folderId === userRoot.id) return '/';
+    
     const pathParts = await data.getFolderPath(folderId, userId);
-    return '/' + pathParts.map(p => p.name).join('/');
+    // Slice(1) to remove the root folder, as WebDAV path doesn't need it
+    return '/' + pathParts.slice(1).map(p => p.name).join('/');
 }
 
 module.exports = { upload, remove, getUrl, type: 'webdav' };

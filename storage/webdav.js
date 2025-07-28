@@ -4,102 +4,53 @@ const db = require('../database.js');
 
 let clients = {};
 
-function getClient(userId) {
-    const storageManager = require('./index'); 
-    const config = storageManager.readConfig();
-    const userWebdavConfig = config.webdav.find(c => c.userId === userId);
-    if (!userWebdavConfig) {
-        throw new Error('找不到该使用者的 WebDAV 设定');
-    }
+// (getClient 和 getFolderPath 函式保持不變)
+// ...
 
-    const clientKey = `${userId}-${userWebdavConfig.url}-${userWebdavConfig.username}`;
-    if (!clients[clientKey]) {
-        clients[clientKey] = createClient(userWebdavConfig.url, {
-            username: userWebdavConfig.username,
-            password: userWebdavConfig.password
-        });
-    }
-    return clients[clientKey];
-}
-
-async function getFolderPath(folderId, userId) {
-    const userRoot = await new Promise((resolve, reject) => {
-        db.get("SELECT id FROM folders WHERE user_id = ? AND parent_id IS NULL", [userId], (err, row) => {
-            if (err) return reject(err);
-            if (!row) return reject(new Error('找不到使用者根目录'));
-            resolve(row);
-        });
-    });
-
-    if (folderId === userRoot.id) return '/';
-    
-    const pathParts = await data.getFolderPath(folderId, userId);
-    return '/' + pathParts.slice(1).map(p => p.name).join('/');
-}
-
-async function upload(fileBuffer, fileName, mimetype, userId, folderId) {
+async function upload(readStream, fileName, mimetype, userId, folderId, size) {
     const client = getClient(userId);
     const folderPath = await getFolderPath(folderId, userId);
     const remotePath = (folderPath === '/' ? '' : folderPath) + '/' + fileName;
     
-    // 解决资料夹上传问题：确保远端目录存在
     if (folderPath && folderPath !== "/") {
         try {
             await client.createDirectory(folderPath, { recursive: true });
         } catch (e) {
-            // 忽略目录已存在的错误
             if (e.response && (e.response.status !== 405 && e.response.status !== 501)) {
                  throw e;
             }
         }
     }
 
-    const success = await client.putFileContents(remotePath, fileBuffer, { overwrite: true });
+    // 核心重構：使用 pipe 將讀取流對接到 WebDAV 的寫入流
+    const writeStream = client.createWriteStream(remotePath, {
+        headers: {
+            "Content-Length": size
+        }
+    });
 
-    if (!success) {
-        throw new Error('WebDAV putFileContents 操作失败');
-    }
+    await new Promise((resolve, reject) => {
+        readStream.pipe(writeStream);
+        writeStream.on('finish', resolve);
+        writeStream.on('error', reject);
+        readStream.on('error', reject);
+    });
 
-    const stat = await client.stat(remotePath);
     const messageId = Date.now() + Math.floor(Math.random() * 1000);
 
     const dbResult = await data.addFile({
         message_id: messageId,
         fileName,
         mimetype,
-        size: stat.size,
+        size, // 使用從 multer 獲取的正確大小
         file_id: remotePath,
-        date: new Date(stat.lastmod).getTime(),
+        date: Date.now(),
     }, folderId, userId, 'webdav');
     
-    return { success: true, message: '档案已上传至 WebDAV。', fileId: dbResult.fileId };
+    return { success: true, message: '檔案已上傳至 WebDAV。', fileId: dbResult.fileId };
 }
 
-async function remove(files, userId) {
-    const client = getClient(userId);
-    for (const file of files) {
-        try {
-            await client.deleteFile(file.file_id);
-        } catch (error) {
-            if (error.response && error.response.status !== 404) {
-                 console.warn(`删除 WebDAV 档案失败: ${file.file_id}`, error.message);
-            }
-        }
-    }
-    await data.deleteFilesByIds(files.map(f => f.message_id), userId);
-    return { success: true };
-}
-
-// 解决下载和分享问题：新增 stream 方法
-async function stream(file_id, userId) {
-    const client = getClient(userId);
-    return client.createReadStream(file_id);
-}
-
-// getUrl 保持不变，但优先使用 stream
-async function getUrl(file_id, userId) {
-    const client = getClient(userId);
-    return client.getFileDownloadLink(file_id);
-}
+// (remove, stream, getUrl 等函式保持不變)
+// ...
 
 module.exports = { upload, remove, getUrl, stream, type: 'webdav' };

@@ -27,7 +27,7 @@
         <nav class="breadcrumb" id="breadcrumb" style="margin-bottom: 0; flex-grow: 1;"></nav>
         <form class="search-form" id="searchForm">
             <i class="fas fa-search"></i>
-            <input type="search" id="searchInput" placeholder="搜寻所有档案...">
+            <input type="search" id="searchInput" placeholder="搜寻所有文件...">
         </form>
     </div>
     
@@ -90,8 +90,8 @@
 
   <div id="conflictModal" class="modal">
     <div class="move-modal-content">
-        <h3>档案冲突</h3>
-        <p>目标夹中已存在同名档案：</p>
+        <h3>文件冲突</h3>
+        <p>目标文件夹中已存在同名文件：</p>
         <p><b id="conflictFileName"></b></p>
         <p>您要如何处理？</p>
         <div id="conflictOptions">
@@ -106,13 +106,13 @@
 
   <div id="folderConflictModal" class="modal">
     <div class="move-modal-content">
-        <h3>夹冲突</h3>
-        <p>目标位置已存在同名夹：</p>
+        <h3>文件夹冲突</h3>
+        <p>目标位置已存在同名文件夹：</p>
         <p><b id="folderConflictName"></b></p>
         <p>您希望如何处理？</p>
         <div id="folderConflictOptions">
-            <button data-action="merge">合并夹 (同名档案将被覆盖)</button>
-            <button data-action="skip">略过此夹</button>
+            <button data-action="merge">合并文件夹 (同名文件将被覆盖)</button>
+            <button data-action="skip">略过此文件夹</button>
             <button data-action="abort" style="background-color: #dc3545;">放弃整个移动操作</button>
         </div>
     </div>
@@ -128,7 +128,7 @@
                 <label for="fileInput" class="custom-upload-btn"><i class="fas fa-file"></i> 选择</label>
                 <input type="file" name="files" id="fileInput" multiple />
                 
-                <label for="folderInput" class="custom-upload-btn"><i class="fas fa-folder"></i> 选择夹</label>
+                <label for="folderInput" class="custom-upload-btn"><i class="fas fa-folder"></i> 选择文件夹</label>
                 <input type="file" id="folderInput" webkitdirectory directory />
             </div>
 
@@ -162,7 +162,7 @@
               </div>
           </div>
           <div class="actions">
-              <button id="createFolderBtn" title="建立夹"><i class="fas fa-folder-plus"></i></button>
+              <button id="createFolderBtn" title="建立文件夹"><i class="fas fa-folder-plus"></i></button>
               <button id="textEditBtn" title="新建文字档"><i class="fas fa-file-alt"></i></button>
               <button id="multiSelectBtn" title="多选模式"><i class="fas fa-tasks"></i></button>
               <button id="previewBtn" title="预览" disabled><i class="fas fa-eye"></i></button>

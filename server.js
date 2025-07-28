@@ -174,6 +174,16 @@ app.get('/api/admin/users', requireAdmin, async (req, res) => {
     }
 });
 
+// 新增：取得所有使用者 API
+app.get('/api/admin/all-users', requireAdmin, async (req, res) => {
+    try {
+        const users = await data.listAllUsers();
+        res.json(users);
+    } catch (error) {
+        res.status(500).json({ success: false, message: '获取所有使用者列表失败。' });
+    }
+});
+
 app.post('/api/admin/add-user', requireAdmin, async (req, res) => {
     const { username, password } = req.body;
     if (!username || !password || password.length < 4) {

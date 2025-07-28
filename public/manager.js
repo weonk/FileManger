@@ -272,8 +272,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const allItems = [...folders, ...files];
         
         if (allItems.length === 0) {
-            if (currentView === 'grid') parentGrid.innerHTML = isSearchMode ? '<p>找不到符合条件的文件。</p>' : '<p>这个资料夹是空的。</p>';
-            else parentList.innerHTML = isSearchMode ? '<div class="list-item"><p>找不到符合条件的文件。</p></div>' : '<div class="list-item"><p>这个资料夹是空的。</p></div>';
+            if (currentView === 'grid') parentGrid.innerHTML = isSearchMode ? '<p>找不到符合条件的文件。</p>' : '<p>这个文件夹是空的。</p>';
+            else parentList.innerHTML = isSearchMode ? '<div class="list-item"><p>找不到符合条件的文件。</p></div>' : '<div class="list-item"><p>这个文件夹是空的。</p></div>';
             return;
         }
 
@@ -425,20 +425,46 @@ document.addEventListener('DOMContentLoaded', () => {
         renderItems(currentFolderContents.folders, currentFolderContents.files);
     };
 
-    async function handleFolderConflict(folderName) {
-        return new Promise((resolve) => {
-            folderConflictName.textContent = folderName;
-            folderConflictModal.style.display = 'flex';
+    async function handleFolderConflict(conflicts) {
+        let merge = {};
+        let i = 0;
 
-            folderConflictOptions.onclick = (e) => {
-                const action = e.target.dataset.action;
-                if (!action) return;
+        function showNextConflict() {
+            return new Promise((resolve) => {
+                if (i >= conflicts.length) {
+                    resolve({ action: 'finish', merge });
+                    return;
+                }
 
-                folderConflictModal.style.display = 'none';
-                folderConflictOptions.onclick = null;
-                resolve(action);
-            };
-        });
+                folderConflictName.textContent = conflicts[i];
+                folderConflictModal.style.display = 'flex';
+
+                folderConflictOptions.onclick = (e) => {
+                    const action = e.target.dataset.action;
+                    if (!action) return;
+
+                    folderConflictModal.style.display = 'none';
+                    if (action === 'merge') {
+                        merge[conflicts[i]] = 'merge';
+                        i++;
+                        resolve(showNextConflict());
+                    } else if (action === 'merge_all') {
+                        conflicts.forEach(c => merge[c] = 'merge');
+                        resolve({ action: 'finish', merge });
+                    } else if (action === 'skip') {
+                        merge[conflicts[i]] = 'skip';
+                        i++;
+                        resolve(showNextConflict());
+                    } else if (action === 'skip_all') {
+                        conflicts.forEach(c => merge[c] = 'skip');
+                        resolve({ action: 'finish', merge });
+                    } else if (action === 'abort') {
+                        resolve({ action: 'abort' });
+                    }
+                };
+            });
+        }
+        return showNextConflict();
     }
 
     const checkScreenWidthAndCollapse = () => {

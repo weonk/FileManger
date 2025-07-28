@@ -23,9 +23,35 @@
             <select id="storage-select">
                 <option value="telegram">Telegram</option>
                 <option value="local">本地伺服器</option>
+                <option value="webdav">WebDAV</option>
             </select>
             <button id="save-btn">储存设定</button>
             <p id="save-status" style="color: green;"></p>
+        </div>
+
+        <div class="setting-card" id="webdav-settings-card" style="display: none;">
+            <h2>WebDAV 储存设定</h2>
+            <p>为每个使用者设定独立的 WebDAV 连线。只有在储存模式设定为 "WebDAV" 时才会生效。</p>
+            <form id="webdav-form">
+                <select id="webdav-user-select" required>
+                    <option value="">-- 选择一个使用者 --</option>
+                </select>
+                <input type="url" id="webdav-url" placeholder="WebDAV URL (例如: https://example.com/remote.php/dav/files/username)" required>
+                <input type="text" id="webdav-username" placeholder="使用者名称" required>
+                <input type="password" id="webdav-password" placeholder="密码" required>
+                <button type="submit">储存/更新 WebDAV 设定</button>
+            </form>
+            <table class="user-table">
+                <thead>
+                    <tr>
+                        <th>使用者</th>
+                        <th>WebDAV URL</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody id="webdav-table-body">
+                </tbody>
+            </table>
         </div>
 
         <div class="setting-card">
@@ -49,7 +75,6 @@
     </div>
     <script src="/vendor/axios/axios.min.js"></script>
     <script>
-        // Javascript 程式碼保持不變
         document.addEventListener('DOMContentLoaded', () => {
             const currentModeEl = document.getElementById('current-mode');
             const storageSelect = document.getElementById('storage-select');
@@ -59,12 +84,31 @@
             const newUsernameInput = document.getElementById('new-username');
             const newPasswordInput = document.getElementById('new-password');
             const userTableBody = document.getElementById('user-table-body');
+            const webdavForm = document.getElementById('webdav-form');
+            const webdavUserSelect = document.getElementById('webdav-user-select');
+            const webdavUrlInput = document.getElementById('webdav-url');
+            const webdavUsernameInput = document.getElementById('webdav-username');
+            const webdavPasswordInput = document.getElementById('webdav-password');
+            const webdavTableBody = document.getElementById('webdav-table-body');
             
             async function loadCurrentMode() {
                 try {
                     const res = await axios.get('/api/admin/storage-mode');
-                    currentModeEl.textContent = res.data.mode === 'local' ? '本地伺服器' : 'Telegram';
+                    let modeText = '未知';
+                    switch (res.data.mode) {
+                        case 'local':
+                            modeText = '本地伺服器';
+                            break;
+                        case 'telegram':
+                            modeText = 'Telegram';
+                            break;
+                        case 'webdav':
+                            modeText = 'WebDAV';
+                            break;
+                    }
+                    currentModeEl.textContent = modeText;
                     storageSelect.value = res.data.mode;
+                    document.getElementById('webdav-settings-card').style.display = res.data.mode === 'webdav' ? 'block' : 'none';
                 } catch (error) {
                     currentModeEl.textContent = '读取失败';
                 }
@@ -72,7 +116,7 @@
 
             saveBtn.addEventListener('click', async () => {
                 const newMode = storageSelect.value;
-                if (!confirm(`确定要将储存模式切换为 "${newMode}" 吗？`)) {
+                if (!confirm(`确定要将储存模式切换为 "${storageSelect.options[storageSelect.selectedIndex].text}" 吗？`)) {
                     return;
                 }
                 try {
@@ -84,6 +128,98 @@
                 } catch (error) {
                     saveStatus.textContent = '储存失败！';
                 }
+            });
+            
+            async function loadWebdavSettings() {
+                try {
+                    const [usersRes, webdavRes] = await Promise.all([
+                        axios.get('/api/admin/users'),
+                        axios.get('/api/admin/webdav')
+                    ]);
+                    
+                    const users = usersRes.data;
+                    const webdavConfigs = new Map(webdavRes.data.map(c => [c.userId, c]));
+
+                    webdavUserSelect.innerHTML = '<option value="">-- 选择一个使用者 --</option>';
+                    users.forEach(user => {
+                        const option = document.createElement('option');
+                        option.value = user.id;
+                        option.textContent = user.username;
+                        webdavUserSelect.appendChild(option);
+                    });
+
+                    webdavTableBody.innerHTML = '';
+                    users.forEach(user => {
+                        const config = webdavConfigs.get(user.id);
+                        const row = `
+                            <tr>
+                                <td>${user.username}</td>
+                                <td>${config ? config.url : '未设定'}</td>
+                                <td class="actions">
+                                    <button class="edit-webdav-btn" data-userid="${user.id}">编辑</button>
+                                    <button class="delete-webdav-btn" data-userid="${user.id}" ${!config ? 'disabled' : ''}>删除</button>
+                                </td>
+                            </tr>
+                        `;
+                        webdavTableBody.innerHTML += row;
+                    });
+
+                } catch (error) {
+                    console.error("加载 WebDAV 设定失败", error);
+                }
+            }
+
+            webdavForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                try {
+                    await axios.post('/api/admin/webdav', {
+                        userId: webdavUserSelect.value,
+                        url: webdavUrlInput.value,
+                        username: webdavUsernameInput.value,
+                        password: webdavPasswordInput.value,
+                    });
+                    alert('WebDAV 设定已儲存!');
+                    webdavForm.reset();
+                    loadWebdavSettings();
+                } catch (error) {
+                    alert('儲存失败: ' + (error.response?.data?.message || '伺服器错误'));
+                }
+            });
+
+            webdavTableBody.addEventListener('click', async (e) => {
+                const target = e.target;
+                const userId = parseInt(target.dataset.userid, 10);
+
+                if (target.classList.contains('edit-webdav-btn')) {
+                    const config = (await axios.get('/api/admin/webdav')).data.find(c => c.userId === userId);
+                    webdavUserSelect.value = userId;
+                    if(config) {
+                        webdavUrlInput.value = config.url;
+                        webdavUsernameInput.value = config.username;
+                        webdavPasswordInput.value = config.password;
+                    } else {
+                        webdavUrlInput.value = '';
+                        webdavUsernameInput.value = '';
+                        webdavPasswordInput.value = '';
+                    }
+                    webdavUrlInput.focus();
+                }
+
+                if (target.classList.contains('delete-webdav-btn')) {
+                    if (confirm('确定要删除此使用者的 WebDAV 设定吗？')) {
+                        try {
+                            await axios.delete(`/api/admin/webdav/${userId}`);
+                            alert('设定已删除。');
+                            loadWebdavSettings();
+                        } catch (error) {
+                            alert('删除失败：' + (error.response?.data?.message || '伺服器错误'));
+                        }
+                    }
+                }
+            });
+            
+            storageSelect.addEventListener('change', () => {
+                document.getElementById('webdav-settings-card').style.display = storageSelect.value === 'webdav' ? 'block' : 'none';
             });
             
             async function loadUsers() {
@@ -119,6 +255,7 @@
                     newPasswordInput.value = '';
                     alert('使用者新增成功！');
                     loadUsers();
+                    loadWebdavSettings(); // 新增使用者后，重新加载 WebDAV 设置
                 } catch (error) {
                     alert('新增失败：' + (error.response?.data?.message || '伺服器错误'));
                 }
@@ -149,6 +286,7 @@
                             await axios.post('/api/admin/delete-user', { userId });
                             alert(`使用者 "${username}" 已被删除。`);
                             loadUsers();
+                            loadWebdavSettings(); // 删除使用者后，重新加载 WebDAV 设置
                         } catch (error) {
                              alert('删除失败：' + (error.response?.data?.message || '伺服器错误'));
                         }
@@ -158,6 +296,7 @@
 
             loadUsers();
             loadCurrentMode();
+            loadWebdavSettings();
         });
     </script>
 </body>

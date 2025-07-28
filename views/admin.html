@@ -132,9 +132,8 @@
             
             async function loadWebdavSettings() {
                 try {
-                    // 修正：呼叫 all-users API
                     const [usersRes, webdavRes] = await Promise.all([
-                        axios.get('/api/admin/all-users'),
+                        axios.get('/api/admin/all-users'), // 修正：呼叫 all-users
                         axios.get('/api/admin/webdav')
                     ]);
                     

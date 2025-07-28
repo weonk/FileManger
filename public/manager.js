@@ -122,7 +122,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 showNotification(`上传失败: ${res.data.message}`, 'error', notificationContainer);
             }
         } catch (error) {
-            showNotification('上传失败: ' + (error.response?.data?.message || '伺服器错误'), 'error', notificationContainer);
+            showNotification('上传失败: ' + (error.response?.data?.message || '服务器错误'), 'error', notificationContainer);
         } finally {
             if (submitBtn) submitBtn.disabled = false;
             setTimeout(() => { progressArea.style.display = 'none'; }, 2000);
@@ -131,14 +131,14 @@ document.addEventListener('DOMContentLoaded', () => {
     
     const uploadFiles = async (files, targetFolderId, isDrag = false) => {
         if (files.length === 0) {
-            showNotification('请选择档案。', 'error', !isDrag ? uploadNotificationArea : null);
+            showNotification('请选择文件。', 'error', !isDrag ? uploadNotificationArea : null);
             return;
         }
     
         const oversizedFiles = Array.from(files).filter(file => file.size > MAX_TELEGRAM_SIZE);
         if (oversizedFiles.length > 0) {
             const fileNames = oversizedFiles.map(f => `"${f.name}"`).join(', ');
-            showNotification(`档案 ${fileNames} 过大，超过 ${formatBytes(MAX_TELEGRAM_SIZE)} 的限制。`, 'error', !isDrag ? uploadNotificationArea : null);
+            showNotification(`文件 ${fileNames} 过大，超过 ${formatBytes(MAX_TELEGRAM_SIZE)} 的限制。`, 'error', !isDrag ? uploadNotificationArea : null);
             return;
         }
 
@@ -152,7 +152,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const res = await axios.post('/api/check-existence', { files: filesToCheck, folderId: targetFolderId });
             existenceData = res.data.files;
         } catch (error) {
-            showNotification(error.response?.data?.message || '检查档案是否存在时出错。', 'error', !isDrag ? null : uploadNotificationArea);
+            showNotification(error.response?.data?.message || '检查文件是否存在时出错。', 'error', !isDrag ? null : uploadNotificationArea);
             return;
         }
     
@@ -164,7 +164,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const existing = existenceData.find(f => f.relativePath === relativePath && f.exists);
     
             if (existing) {
-                if (confirm(`档案 "${existing.name}" 已存在于目标位置 (${existing.relativePath})。您要覆盖它吗？`)) {
+                if (confirm(`文件 "${existing.name}" 已存在于目标位置 (${existing.relativePath})。您要覆盖它吗？`)) {
                     pathsToOverwrite.push(relativePath);
                     filesToUpload.push(file);
                 }
@@ -174,7 +174,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     
         if (filesToUpload.length === 0) {
-            showNotification('已取消，没有档案被上传。', 'info', !isDrag ? uploadNotificationArea : null);
+            showNotification('已取消，没有文件被上传。', 'info', !isDrag ? uploadNotificationArea : null);
             return;
         }
     
@@ -262,8 +262,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const allItems = [...folders, ...files];
         
         if (allItems.length === 0) {
-            if (currentView === 'grid') parentGrid.innerHTML = isSearchMode ? '<p>找不到符合条件的档案。</p>' : '<p>这个资料夹是空的。</p>';
-            else parentList.innerHTML = isSearchMode ? '<div class="list-item"><p>找不到符合条件的档案。</p></div>' : '<div class="list-item"><p>这个资料夾是空的。</p></div>';
+            if (currentView === 'grid') parentGrid.innerHTML = isSearchMode ? '<p>找不到符合条件的文件。</p>' : '<p>这个资料夹是空的。</p>';
+            else parentList.innerHTML = isSearchMode ? '<div class="list-item"><p>找不到符合条件的文件。</p></div>' : '<div class="list-item"><p>这个资料夾是空的。</p></div>';
             return;
         }
 
@@ -483,7 +483,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     alert('密码修改成功！');
                 }
             } catch (error) {
-                alert('密码修改失败：' + (error.response?.data?.message || '伺服器错误'));
+                alert('密码修改失败：' + (error.response?.data?.message || '服务器错误'));
             }
         });
     }
@@ -523,7 +523,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const files = e.target.files;
             if (files.length > 0) {
                 const folderName = files[0].webkitRelativePath.split('/')[0];
-                fileListContainer.innerHTML = `<li>已选择资料夹: <b>${folderName}</b> (包含 ${files.length} 个档案)</li>`;
+                fileListContainer.innerHTML = `<li>已选择资料夹: <b>${folderName}</b> (包含 ${files.length} 个文件)</li>`;
                 uploadSubmitBtn.style.display = 'block';
             }
         });
@@ -748,8 +748,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 modalContent.innerHTML = `
                     <div class="no-preview">
                         <i class="fas fa-file"></i>
-                        <p>此档案类型不支持预览。</p>
-                        <a href="${downloadUrl}" class="upload-link-btn" download>下载档案</a>
+                        <p>此文件类型不支持预览。</p>
+                        <a href="${downloadUrl}" class="upload-link-btn" download>下载文件</a>
                     </div>
                 `;
             }
@@ -769,7 +769,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     });
                     loadFolderContents(currentFolderId);
                  } catch (error) {
-                     alert('重命名失败: ' + (error.response?.data?.message || '伺服器错误'));
+                     alert('重命名失败: ' + (error.response?.data?.message || '服务器错误'));
                  }
              }
         });
@@ -1009,7 +1009,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 showNotification('项目移动成功！', 'success');
 
             } catch (error) {
-                alert('操作失败：' + (error.response?.data?.message || '伺服器错误'));
+                alert('操作失败：' + (error.response?.data?.message || '服务器错误'));
             }
         });
     }

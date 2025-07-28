@@ -10,18 +10,17 @@ async function upload(readStream, fileName, mimetype, userId, folderId, size) {
         fs.mkdirSync(userUploadsDir, { recursive: true });
     }
 
-    // 使用 message_id 作為檔名以確保唯一性
     const messageId = Date.now() + Math.floor(Math.random() * 1000);
     const finalFilePath = path.join(userUploadsDir, String(messageId));
     
-    // 核心重構：使用 pipe 進行流式寫入
+    // 使用 pipe 进行流式写入
     const writeStream = fs.createWriteStream(finalFilePath);
     
     await new Promise((resolve, reject) => {
         readStream.pipe(writeStream);
         writeStream.on('finish', resolve);
         writeStream.on('error', reject);
-        readStream.on('error', reject); // 確保也能捕捉讀取流的錯誤
+        readStream.on('error', reject);
     });
 
     const dbResult = await data.addFile({
@@ -29,21 +28,21 @@ async function upload(readStream, fileName, mimetype, userId, folderId, size) {
         fileName,
         mimetype,
         size,
-        file_id: finalFilePath, // 儲存最終路徑
+        file_id: finalFilePath,
         date: Date.now(),
     }, folderId, userId, 'local');
 
-    return { success: true, message: '檔案已上傳至本地。', fileId: dbResult.fileId };
+    return { success: true, message: '文件已上传至本地。', fileId: dbResult.fileId };
 }
 
 async function remove(files, userId) {
     for (const file of files) {
         try {
-            if (fs.existsSync(file.file_id)) {
+            if (file.file_id && fs.existsSync(file.file_id)) {
                 fs.unlinkSync(file.file_id);
             }
         } catch (error) {
-            console.warn(`刪除本地檔案失敗: ${file.file_id}`, error.message);
+            console.warn(`删除本地文件失败: ${file.file_id}`, error.message);
         }
     }
     await data.deleteFilesByIds(files.map(f => f.message_id), userId);
@@ -54,4 +53,10 @@ async function stream(file_id, userId) {
     return fs.createReadStream(file_id);
 }
 
-module.exports = { upload, remove, stream, type: 'local' };
+// 本地存储模式下，getUrl 没有实际意义，但保留接口统一性
+async function getUrl(file_id, userId) {
+    return null; 
+}
+
+
+module.exports = { upload, remove, stream, getUrl, type: 'local' };

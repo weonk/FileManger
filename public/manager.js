@@ -157,19 +157,34 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     
         const filesToUpload = [];
-        const pathsToOverwrite = [];
-    
+        let pathsToOverwrite = [];
+        const conflicts = [];
+        const nonConflicts = [];
+
         for (const file of fileObjects) {
             const relativePath = file.webkitRelativePath || file.name;
             const existing = existenceData.find(f => f.relativePath === relativePath && f.exists);
-    
-            if (existing) {
-                if (confirm(`文件 "${existing.name}" 已存在于目标位置 (${existing.relativePath})。您要覆盖它吗？`)) {
-                    pathsToOverwrite.push(relativePath);
-                    filesToUpload.push(file);
+            if(existing) {
+                conflicts.push(file);
+            } else {
+                nonConflicts.push(file);
+            }
+        }
+        
+        filesToUpload.push(...nonConflicts);
+
+        if (conflicts.length > 0) {
+            const conflictNames = conflicts.map(f => f.webkitRelativePath || f.name);
+            const conflictResult = await handleConflict(conflictNames, '上传');
+            if (conflictResult.action === 'abort') {
+                 if (filesToUpload.length === 0) {
+                    showNotification('上传操作已取消。', 'info', !isDrag ? uploadNotificationArea : null);
+                    return;
                 }
             } else {
-                filesToUpload.push(file);
+                pathsToOverwrite = conflictResult.overwriteList;
+                const filesToMaybeUpload = conflicts.filter(f => pathsToOverwrite.includes(f.webkitRelativePath || f.name));
+                filesToUpload.push(...filesToMaybeUpload);
             }
         }
     
@@ -894,9 +909,16 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    async function handleConflict(conflicts) {
+    async function handleConflict(conflicts, operation = '移动') {
         let overwriteList = [];
         let i = 0;
+
+        // Change button text
+        const abortButton = conflictOptions.querySelector('[data-action="abort"]');
+        if(abortButton) {
+            abortButton.textContent = '取消';
+        }
+
 
         function showNextConflict() {
             return new Promise((resolve) => {
@@ -906,6 +928,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 conflictFileName.textContent = conflicts[i];
+                conflictModal.querySelector('h3').textContent = `文件冲突`;
+                conflictModal.querySelector('p:nth-of-type(1)').textContent = `目标文件夹中已存在同名文件：`;
+                
                 conflictModal.style.display = 'flex';
 
                 conflictOptions.onclick = (e) => {
@@ -918,13 +943,13 @@ document.addEventListener('DOMContentLoaded', () => {
                         i++;
                         resolve(showNextConflict());
                     } else if (action === 'overwrite_all') {
-                        overwriteList = conflicts;
+                        overwriteList = [...overwriteList, ...conflicts.slice(i)];
                         resolve({ action: 'finish', overwriteList });
                     } else if (action === 'skip') {
                         i++;
                         resolve(showNextConflict());
                     } else if (action === 'skip_all') {
-                        resolve({ action: 'finish', overwriteList: [] });
+                        resolve({ action: 'finish', overwriteList: overwriteList });
                     } else if (action === 'abort') {
                         resolve({ action: 'abort' });
                     }
@@ -956,6 +981,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 let fileOverwriteList = [];
                 let folderMergeList = [];
                 let skippedFolders = [];
+                let finalItemsToMove = [...itemsToMove];
 
                 if (folderConflicts && folderConflicts.length > 0) {
                     for (const folderName of folderConflicts) {
@@ -974,22 +1000,30 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                     }
                 }
-
-                const finalItemsToMove = itemsToMove.filter(item => !skippedFolders.includes(item.id));
-                const finalItemIds = finalItemsToMove.map(item => item.id);
+                
+                finalItemsToMove = itemsToMove.filter(item => !skippedFolders.includes(item.id));
                 const finalFileConflicts = fileConflicts.filter(name => finalItemsToMove.some(item => item.name === name && item.type === 'file'));
 
 
                 if (finalFileConflicts && finalFileConflicts.length > 0) {
-                    const result = await handleConflict(finalFileConflicts);
+                    const result = await handleConflict(finalFileConflicts, '移动');
                     if (result.action === 'abort') {
-                        showNotification('移动操作已放弃。', 'info');
+                        showNotification('移动操作已取消。', 'info');
                         moveModal.style.display = 'none';
                         return;
                     }
                     fileOverwriteList = result.overwriteList;
                 }
                 
+                const finalItemIds = finalItemsToMove
+                    .filter(item => {
+                        if (item.type === 'file' && fileConflicts.includes(item.name) && !fileOverwriteList.includes(item.name)) {
+                            return false; // Skip files that had a conflict and were not marked for overwrite
+                        }
+                        return true;
+                    })
+                    .map(item => item.id);
+
                 if (finalItemIds.length === 0) {
                     moveModal.style.display = 'none';
                     showNotification('没有项目被移动。', 'info');

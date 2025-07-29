@@ -411,7 +411,6 @@ app.post('/api/check-existence', requireLogin, async (req, res) => {
     }
 });
 
-
 app.post('/api/check-move-conflict', requireLogin, async (req, res) => {
     try {
         const { itemIds, targetFolderId } = req.body;
@@ -432,8 +431,8 @@ app.post('/api/check-move-conflict', requireLogin, async (req, res) => {
 
         const folderNamesToMove = itemsToMove.filter(i => i.type === 'folder').map(f => f.name);
 
-        const fileConflicts = await data.checkNameConflict(fileNamesToMove, targetFolderId, userId);
-        const folderConflicts = await data.checkFolderConflict(folderNamesToMove, targetFolderId, userId);
+        const fileConflicts = await data.checkItemNameConflict(fileNamesToMove, targetFolderId, userId);
+        const folderConflicts = await data.checkItemNameConflict(folderNamesToMove, targetFolderId, userId);
 
         res.json({ success: true, fileConflicts, folderConflicts });
     } catch (error) {
@@ -441,6 +440,7 @@ app.post('/api/check-move-conflict', requireLogin, async (req, res) => {
         res.status(500).json({ success: false, message: '检查名称冲突时出错。' });
     }
 });
+
 
 app.get('/api/search', requireLogin, async (req, res) => {
     try {

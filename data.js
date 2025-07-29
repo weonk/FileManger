@@ -564,6 +564,7 @@ function getConflictingItems(itemNames, targetFolderId, userId) {
             SELECT name, 'folder' as type FROM folders
             WHERE parent_id = ? AND user_id = ? AND name IN (${placeholders})
         `;
+        // [FIX] 确保为 SQL 查询中的每个 IN 子句都传递了参数
         db.all(sql, [targetFolderId, userId, ...uniqueNames, targetFolderId, userId, ...uniqueNames], (err, rows) => {
             if (err) return reject(err);
             resolve(rows);

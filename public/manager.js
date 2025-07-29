@@ -189,7 +189,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     
         if (filesToUpload.length === 0) {
-            showNotification('已取消，没有文件被上传。', 'info', !isDrag ? uploadNotificationArea : null);
+            showNotification('没有文件被上传。', 'success', !isDrag ? uploadNotificationArea : null);
             return;
         }
     
@@ -909,7 +909,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    async function handleConflict(conflicts) {
+    async function handleConflict(conflicts, operation = '移动') {
         let overwriteList = [];
         let i = 0;
     
@@ -954,86 +954,78 @@ document.addEventListener('DOMContentLoaded', () => {
     if (confirmMoveBtn) {
         confirmMoveBtn.addEventListener('click', async () => {
             if (!moveTargetFolderId) return;
-
+    
             const itemIds = Array.from(selectedItems.keys()).map(id => parseInt(id, 10));
-            const itemsToMove = Array.from(selectedItems.entries()).map(([id, item]) => ({
-                id: parseInt(id, 10),
-                name: item.name,
-                type: item.type
-            }));
-
+            
             try {
                 const conflictCheckRes = await axios.post('/api/check-move-conflict', {
                     itemIds: itemIds,
                     targetFolderId: moveTargetFolderId
                 });
-
+    
                 const { fileConflicts, folderConflicts } = conflictCheckRes.data;
-
+                
                 let fileOverwriteList = [];
                 let folderMergeList = [];
-                let skippedFolders = [];
-                let finalItemsToMove = [...itemsToMove];
-
-                if (folderConflicts && folderConflicts.length > 0) {
+                const itemsToMove = Array.from(selectedItems.values());
+                let finalItemIds = [...itemIds];
+    
+                if (folderConflicts.length > 0) {
                     for (const folderName of folderConflicts) {
                         const action = await handleFolderConflict(folderName);
                         if (action === 'merge') {
                             folderMergeList.push(folderName);
                         } else if (action === 'skip') {
-                            const conflictingFolder = itemsToMove.find(item => item.name === folderName && item.type === 'folder');
-                            if (conflictingFolder) {
-                                skippedFolders.push(conflictingFolder.id);
-                            }
+                            const folderToSkip = itemsToMove.find(item => item.name === folderName && item.type === 'folder');
+                            const idToSkip = Array.from(selectedItems.keys())[itemsToMove.indexOf(folderToSkip)];
+                            finalItemIds = finalItemIds.filter(id => id !== parseInt(idToSkip));
                         } else { // abort
-                            showNotification('移动操作已取消。', 'info');
                             moveModal.style.display = 'none';
                             return;
                         }
                     }
                 }
                 
-                finalItemsToMove = itemsToMove.filter(item => !skippedFolders.includes(item.id));
-                const finalFileConflicts = fileConflicts.filter(name => finalItemsToMove.some(item => item.name === name && item.type === 'file'));
-
-
-                if (finalFileConflicts && finalFileConflicts.length > 0) {
-                    const result = await handleConflict(finalFileConflicts, '移动');
-                    if (result.action === 'abort') {
+                if (fileConflicts.length > 0) {
+                    const result = await handleConflict(fileConflicts, '移动');
+                     if (result.action === 'abort') {
                         showNotification('移动操作已取消。', 'info');
                         moveModal.style.display = 'none';
                         return;
                     }
                     fileOverwriteList = result.overwriteList;
                 }
-                
-                const finalItemIds = finalItemsToMove
+    
+                const finalFileItemsToMove = itemsToMove.filter(item => finalItemIds.includes(parseInt(Array.from(selectedItems.keys())[itemsToMove.indexOf(item)])));
+    
+                finalItemIds = finalFileItemsToMove
                     .filter(item => {
                         if (item.type === 'file' && fileConflicts.includes(item.name) && !fileOverwriteList.includes(item.name)) {
-                            return false; // Skip files that had a conflict and were not marked for overwrite
+                            return false;
                         }
                         return true;
                     })
-                    .map(item => item.id);
-
+                    .map(item => Array.from(selectedItems.keys())[itemsToMove.indexOf(item)])
+                    .map(id => parseInt(id));
+    
                 if (finalItemIds.length === 0) {
                     moveModal.style.display = 'none';
-                    showNotification('没有项目被移动。', 'info');
+                    showNotification('没有项目被移动。', 'success');
                     loadFolderContents(currentFolderId);
                     return;
                 }
-
+    
                 await axios.post('/api/move', {
                     itemIds: finalItemIds,
                     targetFolderId: moveTargetFolderId,
                     overwriteList: fileOverwriteList,
                     mergeList: folderMergeList
                 });
-
+    
                 moveModal.style.display = 'none';
                 loadFolderContents(currentFolderId);
                 showNotification('项目移动成功！', 'success');
-
+    
             } catch (error) {
                 alert('操作失败：' + (error.response?.data?.message || '服务器错误'));
             }

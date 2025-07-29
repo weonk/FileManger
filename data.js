@@ -290,7 +290,11 @@ async function moveItem(itemId, itemType, targetFolderId, userId, options = {}) 
                 for (const child of children) {
                     await moveItem(child.id, child.type, existingFolder.id, userId, options);
                 }
-                await deleteSingleFolder(itemId, userId); // 删除空的来源资料夹
+                // [FIX] After moving children, check if the source folder is empty before deleting it.
+                const remainingChildren = await getChildrenOfFolder(itemId, userId);
+                if (remainingChildren.length === 0) {
+                    await deleteSingleFolder(itemId, userId); // 删除空的来源资料夹
+                }
             }
         } else {
             // 没有冲突，直接移动
@@ -580,9 +584,13 @@ async function getConflictingItems(itemNames, targetFolderId, userId) {
         });
     });
 
-    const [fileConflicts, folderConflicts] = await Promise.all([fileConflictsPromise, folderConflictsPromise]);
-    
-    return [...fileConflicts, ...folderConflicts];
+    try {
+        const [fileConflicts, folderConflicts] = await Promise.all([fileConflictsPromise, folderConflictsPromise]);
+        return [...fileConflicts, ...folderConflicts];
+    } catch (error) {
+        console.error("Error in getConflictingItems:", error);
+        throw error;
+    }
 }
 
 

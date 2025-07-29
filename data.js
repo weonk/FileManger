@@ -195,6 +195,15 @@ async function getFilesRecursive(folderId, userId, currentPath = '') {
     return allFiles;
 }
 
+async function getDescendantFiles(folderIds, userId) {
+    let allFiles = [];
+    for (const folderId of folderIds) {
+        const nestedFiles = await getFilesRecursive(folderId, userId);
+        allFiles.push(...nestedFiles);
+    }
+    return allFiles;
+}
+
 function getFolderPath(folderId, userId) {
     let pathArr = [];
     return new Promise((resolve, reject) => {
@@ -541,16 +550,24 @@ function cancelShare(itemId, itemType, userId) {
         });
     });
 }
-function checkNameConflict(itemNames, targetFolderId, userId) {
+
+function checkItemNameConflict(itemNames, targetFolderId, userId) {
     return new Promise((resolve, reject) => {
         if (!itemNames || itemNames.length === 0) {
             return resolve([]);
         }
-        const placeholders = itemNames.map(() => '?').join(',');
-        const sql = `SELECT fileName FROM files WHERE fileName IN (${placeholders}) AND folder_id = ? AND user_id = ?`;
-        db.all(sql, [...itemNames, targetFolderId, userId], (err, rows) => {
+        const uniqueNames = [...new Set(itemNames)];
+        const placeholders = uniqueNames.map(() => '?').join(',');
+        const sql = `
+            SELECT name FROM (
+                SELECT fileName AS name FROM files WHERE folder_id = ? AND user_id = ? AND fileName IN (${placeholders})
+                UNION
+                SELECT name FROM folders WHERE parent_id = ? AND user_id = ? AND name IN (${placeholders})
+            )
+        `;
+        db.all(sql, [targetFolderId, userId, ...uniqueNames, targetFolderId, userId, ...uniqueNames], (err, rows) => {
             if (err) return reject(err);
-            resolve(rows.map(r => r.fileName));
+            resolve(rows.map(r => r.name));
         });
     });
 }
@@ -577,20 +594,6 @@ function findFileInFolder(fileName, folderId, userId) {
         db.get(sql, [fileName, folderId, userId], (err, row) => {
             if (err) return reject(err);
             resolve(row);
-        });
-    });
-}
-
-function checkFolderConflict(folderNames, targetFolderId, userId) {
-    return new Promise((resolve, reject) => {
-        if (!folderNames || folderNames.length === 0) {
-            return resolve([]);
-        }
-        const placeholders = folderNames.map(() => '?').join(',');
-        const sql = `SELECT name FROM folders WHERE name IN (${placeholders}) AND parent_id = ? AND user_id = ?`;
-        db.all(sql, [...folderNames, targetFolderId, userId], (err, rows) => {
-            if (err) return reject(err);
-            resolve(rows.map(r => r.name));
         });
     });
 }
@@ -655,9 +658,9 @@ module.exports = {
     renameFolder,
     deleteFilesByIds,
     findFileInFolder,
-    checkNameConflict,
-    checkFolderConflict,
+    checkItemNameConflict,
     checkFullConflict,
     resolvePathToFolderId,
-    findFolderByPath
+    findFolderByPath,
+    getDescendantFiles
 };

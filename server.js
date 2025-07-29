@@ -127,21 +127,22 @@ app.post('/login', async (req, res) => {
     }
 });
 
-app.post('/register', async (req, res) => {
-    const { username, password } = req.body;
-    if (!username || !password) {
-        return res.status(400).send('请提供使用者名称和密码');
-    }
-    try {
-        const salt = await bcrypt.genSalt(10);
-        const hashedPassword = await bcrypt.hash(password, salt);
-        const newUser = await data.createUser(username, hashedPassword); 
-        await data.createFolder('/', null, newUser.id); 
-        res.redirect('/login');
-    } catch (error) {
-        res.status(500).send('注册失败，使用者名称可能已被使用。');
-    }
-});
+// 因为您说会自己处理，我暂时注释掉此路由，以防意外注册
+// app.post('/register', async (req, res) => {
+//     const { username, password } = req.body;
+//     if (!username || !password) {
+//         return res.status(400).send('请提供使用者名称和密码');
+//     }
+//     try {
+//         const salt = await bcrypt.genSalt(10);
+//         const hashedPassword = await bcrypt.hash(password, salt);
+//         const newUser = await data.createUser(username, hashedPassword); 
+//         await data.createFolder('/', null, newUser.id); 
+//         res.redirect('/login');
+//     } catch (error) {
+//         res.status(500).send('注册失败，使用者名称可能已被使用。');
+//     }
+// });
 
 app.get('/logout', (req, res) => {
     req.session.destroy(err => {
@@ -529,9 +530,9 @@ app.post('/api/check-move-conflict', requireLogin, async (req, res) => {
             return res.status(400).json({ success: false, message: '无效的请求参数。' });
         }
 
-        const fileConflicts = await data.findAllMoveConflicts(itemIds, targetFolderId, userId);
-
-        res.json({ success: true, fileConflicts });
+        const conflicts = await data.findAllMoveConflicts(itemIds, targetFolderId, userId);
+        
+        res.json({ success: true, ...conflicts });
     } catch (error) {
         console.error("移动冲突检查错误:", error);
         res.status(500).json({ success: false, message: '检查名称冲突时出错。' });
@@ -597,12 +598,12 @@ app.post('/api/move', requireLogin, async (req, res) => {
         
         const overwriteSet = new Set(overwriteList);
         
-        await data.moveItems(itemIds, targetFolderId, userId, overwriteSet);
+        const result = await data.moveItems(itemIds, targetFolderId, userId, overwriteSet);
         
-        res.json({ success: true, message: "移动成功" });
+        res.json(result);
     } catch (error) { 
         console.error("移动错误:", error);
-        res.status(500).json({ success: false, message: '移动失败：' + error.message }); 
+        res.status(500).json({ success: false, message: '移动失败：' + (error.message || '服务器内部错误') }); 
     }
 });
 
@@ -616,7 +617,12 @@ app.post('/api/folder/delete', requireLogin, async (req, res) => {
     if (!folderInfo || folderInfo.length === 0) {
         return res.status(404).json({ success: false, message: '找不到指定的文件夹。' });
     }
-    if (folderInfo.length === 1 && folderInfo[0].id === folderId) {
+    // 获取根目录 ID
+    const rootFolder = await new Promise((resolve, reject) => {
+        db.get("SELECT id FROM folders WHERE user_id = ? AND parent_id IS NULL", [userId], (err, row) => err ? reject(err) : resolve(row));
+    });
+
+    if (folderId === rootFolder.id) {
         return res.status(400).json({ success: false, message: '无法删除根目录。' });
     }
 
@@ -798,6 +804,7 @@ app.post('/api/download-archive', requireLogin, async (req, res) => {
         }
         await archive.finalize();
     } catch (error) {
+        console.error("压缩错误:", error);
         res.status(500).send('压缩文件时发生错误');
     }
 });

@@ -156,15 +156,15 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
     
-        const filesToUpload = [];
+        let filesToUpload = [];
         let pathsToOverwrite = [];
         const conflicts = [];
         const nonConflicts = [];
-
+    
         for (const file of fileObjects) {
             const relativePath = file.webkitRelativePath || file.name;
             const existing = existenceData.find(f => f.relativePath === relativePath && f.exists);
-            if(existing) {
+            if (existing) {
                 conflicts.push(file);
             } else {
                 nonConflicts.push(file);
@@ -172,7 +172,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         filesToUpload.push(...nonConflicts);
-
+    
         if (conflicts.length > 0) {
             const conflictNames = conflicts.map(f => f.webkitRelativePath || f.name);
             const conflictResult = await handleConflict(conflictNames, '上传');
@@ -909,35 +909,27 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    async function handleConflict(conflicts, operation = '移动') {
+    async function handleConflict(conflicts) {
         let overwriteList = [];
         let i = 0;
-
-        // Change button text
-        const abortButton = conflictOptions.querySelector('[data-action="abort"]');
-        if(abortButton) {
-            abortButton.textContent = '取消';
-        }
-
-
+    
         function showNextConflict() {
             return new Promise((resolve) => {
                 if (i >= conflicts.length) {
                     resolve({ action: 'finish', overwriteList });
                     return;
                 }
-
+    
                 conflictFileName.textContent = conflicts[i];
-                conflictModal.querySelector('h3').textContent = `文件冲突`;
-                conflictModal.querySelector('p:nth-of-type(1)').textContent = `目标文件夹中已存在同名文件：`;
-                
                 conflictModal.style.display = 'flex';
-
+    
                 conflictOptions.onclick = (e) => {
                     const action = e.target.dataset.action;
                     if (!action) return;
-
+    
                     conflictModal.style.display = 'none';
+                    conflictOptions.onclick = null; 
+    
                     if (action === 'overwrite') {
                         overwriteList.push(conflicts[i]);
                         i++;
@@ -949,7 +941,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         i++;
                         resolve(showNextConflict());
                     } else if (action === 'skip_all') {
-                        resolve({ action: 'finish', overwriteList: overwriteList });
+                         resolve({ action: 'finish', overwriteList: overwriteList });
                     } else if (action === 'abort') {
                         resolve({ action: 'abort' });
                     }

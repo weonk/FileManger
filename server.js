@@ -421,7 +421,15 @@ app.post('/api/check-move-conflict', requireLogin, async (req, res) => {
         }
 
         const itemsToMove = await data.getItemsByIds(itemIds, userId);
-        const fileNamesToMove = itemsToMove.filter(i => i.type === 'file').map(f => f.name);
+        
+        let fileNamesToMove = itemsToMove.filter(i => i.type === 'file').map(f => f.name);
+        
+        const folderIdsToMove = itemsToMove.filter(i => i.type === 'folder').map(f => f.id);
+        if (folderIdsToMove.length > 0) {
+            const descendantFiles = await data.getDescendantFiles(folderIdsToMove, userId);
+            fileNamesToMove.push(...descendantFiles.map(f => f.fileName));
+        }
+
         const folderNamesToMove = itemsToMove.filter(i => i.type === 'folder').map(f => f.name);
 
         const fileConflicts = await data.checkNameConflict(fileNamesToMove, targetFolderId, userId);

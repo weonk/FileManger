@@ -420,26 +420,52 @@ app.post('/api/check-move-conflict', requireLogin, async (req, res) => {
         }
 
         const itemsToMove = await data.getItemsByIds(itemIds, userId);
-        
-        const topLevelFiles = itemsToMove.filter(i => i.type === 'file');
-        const topLevelFolders = itemsToMove.filter(i => i.type === 'folder');
 
-        let allPotentialConflicts = topLevelFiles.map(f => f.name);
-        const folderConflicts = await data.checkItemNameConflict(topLevelFolders.map(f => f.name), targetFolderId, userId);
-        
-        for (const folder of topLevelFolders) {
-            const willBeMerged = await data.findFolderByName(folder.name, targetFolderId, userId);
-            if (willBeMerged) {
-                const subItems = await data.getChildrenOfFolder(folder.id, userId);
-                allPotentialConflicts.push(...subItems.map(item => item.name));
-            } else {
-                 allPotentialConflicts.push(folder.name);
+        const fileConflictNames = new Set();
+        const folderConflictNames = new Set();
+
+        // 1. 检查顶层冲突
+        const topLevelNames = itemsToMove.map(item => item.name);
+        const topLevelConflicts = await data.getConflictingItems(topLevelNames, targetFolderId, userId);
+
+        for (const item of itemsToMove) {
+            const conflict = topLevelConflicts.find(c => c.name === item.name);
+            if (conflict) {
+                // 如果要移动的是文件夹，且目标位置已存在同名文件夹，则为文件夹冲突
+                if (item.type === 'folder' && conflict.type === 'folder') {
+                    folderConflictNames.add(item.name);
+                } else {
+                    // 其他情况（如文件冲突，或文件夹与文件冲突）均视为文件级冲突
+                    fileConflictNames.add(item.name);
+                }
             }
         }
 
-        const fileConflicts = await data.checkItemNameConflict(allPotentialConflicts, targetFolderId, userId);
+        // 2. 检查即将合并的文件夹内部的冲突
+        const foldersToMerge = itemsToMove.filter(item => item.type === 'folder' && folderConflictNames.has(item.name));
 
-        res.json({ success: true, fileConflicts, folderConflicts });
+        for (const folder of foldersToMerge) {
+            const destFolder = await data.findFolderByName(folder.name, targetFolderId, userId);
+            if (!destFolder) continue;
+
+            // 获取源文件夹和目标文件夹的子项目名称
+            const sourceChildren = await data.getChildrenOfFolder(folder.id, userId);
+            const sourceChildrenNames = sourceChildren.map(c => c.name);
+
+            if (sourceChildrenNames.length > 0) {
+                const innerConflicts = await data.getConflictingItems(sourceChildrenNames, destFolder.id, userId);
+                for (const innerConflict of innerConflicts) {
+                    fileConflictNames.add(innerConflict.name);
+                }
+            }
+        }
+
+        res.json({
+            success: true,
+            fileConflicts: Array.from(fileConflictNames),
+            folderConflicts: Array.from(folderConflictNames)
+        });
+
     } catch (error) {
         console.error("Conflict check error:", error);
         res.status(500).json({ success: false, message: '检查名称冲突时出错。' });
@@ -650,7 +676,6 @@ app.get('/file/content/:message_id', requireLogin, async (req, res) => {
                 res.status(404).send('本地档案不存在');
             }
         } else if (fileInfo.storage_type === 'webdav') {
-            // 关键修正：为 WebDAV 串流新增错误处理
             const stream = await storage.stream(fileInfo.file_id, req.session.userId);
             stream.on('error', (err) => {
                 console.error('WebDAV stream error:', err);

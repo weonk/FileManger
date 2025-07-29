@@ -909,13 +909,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 conflictModal.style.display = 'flex';
 
-                // Use a one-time event listener
                 const clickHandler = (e) => {
                     const action = e.target.dataset.action;
                     if (!action) return;
 
                     conflictModal.style.display = 'none';
-                    conflictOptions.removeEventListener('click', clickHandler); // Clean up listener
+                    conflictOptions.removeEventListener('click', clickHandler); 
 
                     switch (action) {
                         case 'overwrite':
@@ -924,7 +923,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             resolve(showNextConflict());
                             break;
                         case 'overwrite_all':
-                            conflicts.forEach(c => decisions[c] = 'overwrite');
+                            conflicts.slice(i).forEach(c => decisions[c] = 'overwrite');
                             resolve({ action: 'finish', decisions });
                             break;
                         case 'skip':
@@ -933,7 +932,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             resolve(showNextConflict());
                             break;
                         case 'skip_all':
-                            conflicts.forEach(c => decisions[c] = 'skip');
+                             conflicts.slice(i).forEach(c => decisions[c] = 'skip');
                             resolve({ action: 'finish', decisions });
                             break;
                         case 'abort':
@@ -956,7 +955,7 @@ document.addEventListener('DOMContentLoaded', () => {
             let overwriteList = [];
     
             try {
-                // Step 1: Check for all potential file conflicts recursively
+                // 步骤 1: 检查所有潜在的文件冲突
                 const conflictCheckRes = await axios.post('/api/check-move-conflict', {
                     itemIds: itemIds,
                     targetFolderId: moveTargetFolderId
@@ -964,7 +963,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
                 const { fileConflicts } = conflictCheckRes.data;
     
-                // Step 2: If there are conflicts, show the universal conflict dialog
+                // 步骤 2: 如果有冲突，显示通用冲突对话框
                 if (fileConflicts && fileConflicts.length > 0) {
                     const result = await handleConflict(fileConflicts, "移动");
     
@@ -974,14 +973,13 @@ document.addEventListener('DOMContentLoaded', () => {
                         return;
                     }
     
-                    // Build the list of files to overwrite based on user decisions
+                    // 根据用户决定建立要覆盖的文件列表
                     overwriteList = Object.entries(result.decisions)
                         .filter(([, decision]) => decision === 'overwrite')
                         .map(([path]) => path);
                 }
     
-                // Step 3: Perform the move. The backend will handle the merging logic,
-                // using the overwriteList to resolve file conflicts.
+                // 步骤 3: 执行移动
                 await axios.post('/api/move', {
                     itemIds: itemIds,
                     targetFolderId: moveTargetFolderId,
@@ -989,11 +987,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
     
                 moveModal.style.display = 'none';
+                foldersLoaded = false;
                 loadFolderContents(currentFolderId);
                 showNotification('项目移动成功！', 'success');
     
             } catch (error) {
                 alert('操作失败：' + (error.response?.data?.message || '服务器错误'));
+                moveModal.style.display = 'none';
             }
         });
     }    
@@ -1073,7 +1073,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const lastPart = pathParts.filter(p => p).pop();
         let folderId = parseInt(lastPart, 10);
         if (isNaN(folderId)) {
-            folderId = 1; 
+            const rootFolderLink = document.querySelector('#breadcrumb a');
+            if(rootFolderLink) {
+                 folderId = rootFolderLink.dataset.folderId || 1;
+            } else {
+                 folderId = 1;
+            }
         }
         loadFolderContents(folderId);
         

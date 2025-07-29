@@ -8,6 +8,7 @@ const archiver = require('archiver');
 const bcrypt = require('bcrypt');
 const fs = require('fs');
 const fsp = require('fs').promises;
+const crypto = require('crypto'); //
 const db = require('./database.js'); 
 
 const data = require('./data.js');
@@ -355,10 +356,12 @@ app.post('/upload', requireLogin, async (req, res, next) => {
                      }
                 }
 
+                // 核心修改：传递临时文件路径而不是 buffer
                 const result = await storage.upload(tempFilePath, fileName, file.mimetype, userId, targetFolderId, req.body.caption || '');
                 results.push(result);
 
             } finally {
+                // 无论成功或失败都删除临时文件
                 if (fs.existsSync(tempFilePath)) {
                     await fsp.unlink(tempFilePath).catch(err => console.error(`无法删除临时档: ${tempFilePath}`, err));
                 }
@@ -414,6 +417,7 @@ app.post('/api/text-file', requireLogin, async (req, res) => {
         console.error("Text file error:", error);
         res.status(500).json({ success: false, message: '伺服器内部错误' });
     } finally {
+        // 清理临时文件
         if (fs.existsSync(tempFilePath)) {
             await fsp.unlink(tempFilePath).catch(err => console.error(`无法删除文字档的临时档: ${tempFilePath}`, err));
         }

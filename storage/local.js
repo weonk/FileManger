@@ -1,4 +1,5 @@
 const fs = require('fs').promises;
+const fsSync = require('fs');
 const path = require('path');
 const data = require('../data.js');
 const crypto = require('crypto');
@@ -14,14 +15,24 @@ async function setup() {
 }
 setup();
 
-async function upload(fileBuffer, fileName, mimetype, userId, folderId) {
+async function upload(tempFilePath, fileName, mimetype, userId, folderId) {
     const userDir = path.join(UPLOAD_DIR, String(userId));
     await fs.mkdir(userDir, { recursive: true });
 
     const uniqueId = `${Date.now()}-${crypto.randomBytes(8).toString('hex')}`;
-    const filePath = path.join(userDir, uniqueId);
+    const finalFilePath = path.join(userDir, uniqueId);
 
-    await fs.writeFile(filePath, fileBuffer);
+    // 使用流式传输复制文件
+    await new Promise((resolve, reject) => {
+        const readStream = fsSync.createReadStream(tempFilePath);
+        const writeStream = fsSync.createWriteStream(finalFilePath);
+        readStream.on('error', reject);
+        writeStream.on('error', reject);
+        writeStream.on('finish', resolve);
+        readStream.pipe(writeStream);
+    });
+    
+    const stats = await fs.stat(finalFilePath);
 
     const messageId = Date.now() + Math.floor(Math.random() * 1000);
 
@@ -29,8 +40,8 @@ async function upload(fileBuffer, fileName, mimetype, userId, folderId) {
         message_id: messageId,
         fileName,
         mimetype,
-        size: fileBuffer.length,
-        file_id: filePath,
+        size: stats.size,
+        file_id: finalFilePath,
         thumb_file_id: null,
         date: Date.now(),
     }, folderId, userId, 'local');

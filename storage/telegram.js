@@ -2,17 +2,24 @@ require('dotenv').config();
 const axios = require('axios');
 const FormData = require('form-data');
 const data = require('../data.js');
+const fs = require('fs'); // 引入 fs 模组
 
 const TELEGRAM_API = `https://api.telegram.org/bot${process.env.BOT_TOKEN}`;
 
-async function upload(fileBuffer, fileName, mimetype, userId, folderId, caption = '') {
+// 将 upload 函数的第一个参数从 fileBuffer 改为 tempFilePath
+async function upload(tempFilePath, fileName, mimetype, userId, folderId, caption = '') {
   try {
     const formData = new FormData();
     formData.append('chat_id', process.env.CHANNEL_ID);
     formData.append('caption', caption || fileName);
-    formData.append('document', fileBuffer, { filename: fileName });
+    
+    // 从临时文件路径创建可读流并添加到表单中
+    const fileStream = fs.createReadStream(tempFilePath);
+    formData.append('document', fileStream, { filename: fileName });
 
-    const res = await axios.post(`${TELEGRAM_API}/sendDocument`, formData, { headers: formData.getHeaders() });
+    const res = await axios.post(`${TELEGRAM_API}/sendDocument`, formData, { 
+        headers: formData.getHeaders() 
+    });
 
     if (res.data.ok) {
         const result = res.data.result;

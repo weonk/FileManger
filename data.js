@@ -1,6 +1,6 @@
 const db = require('./database.js');
 const crypto = require('crypto');
-const path = 'path';
+const path = require('path');
 
 // --- 用户管理 ---
 function createUser(username, hashedPassword) {
@@ -207,8 +207,6 @@ function getFolderPath(folderId, userId) {
                     pathArr.push({ id: folder.id, name: folder.name });
                     findParent(folder.parent_id);
                 } else {
-                    // 如果中途找不到，很可能是根目录 (parent_id is NULL)
-                    // 或是资料不一致，但无论如何都应该停止并返回现有路径
                     resolve(pathArr.reverse());
                 }
             });
@@ -274,7 +272,7 @@ async function moveItems(itemIds, targetFolderId, userId, overwriteSet = new Set
     const storage = require('./storage').getStorage();
     const itemsToMove = await getItemsByIds(itemIds, userId);
 
-    const dbRun = (sql, params) => new Promise((res, rej) => db.run(sql, params, (err) => err ? rej(err) : res()));
+    const dbRun = (sql, params) => new Promise((res, rej) => db.run(sql, params, function(err) { err ? rej(err) : res(this); }));
 
     return new Promise((resolve, reject) => {
         db.serialize(async () => {
@@ -284,30 +282,24 @@ async function moveItems(itemIds, targetFolderId, userId, overwriteSet = new Set
                 for (const item of itemsToMove) {
                     const itemId = parseInt(item.id, 10);
                     
-                    // 双重检查，以防在前端检查和后端执行之间发生变化
                     const conflict = await checkFullConflict(item.name, targetFolderId, userId);
                     
                     if (item.type === 'file') {
                         if (conflict) {
                             if (overwriteSet.has(item.name) && conflict.type === 'file') {
-                                // 只有当冲突是文件且在覆盖列表中时才删除
                                 const filesToDelete = await getFilesByIds([conflict.id], userId);
                                 if (filesToDelete.length > 0) {
-                                    await storage.remove(filesToDelete, userId); // remove 也处理 DB 删除
+                                    await storage.remove(filesToDelete, userId); 
                                 }
                             } else {
-                                // 如果冲突是资料夹，或不在覆盖列表，则跳过
                                 continue;
                             }
                         }
-                        // 执行移动
                         await dbRun(`UPDATE files SET folder_id = ? WHERE message_id = ? AND user_id = ?`, [targetFolderId, itemId, userId]);
                     } else if (item.type === 'folder') {
                         if (conflict) {
-                            // 不支援资料夹合并或覆盖，直接跳过
                             continue;
                         }
-                        // 执行移动
                         await dbRun(`UPDATE folders SET parent_id = ? WHERE id = ? AND user_id = ?`, [targetFolderId, itemId, userId]);
                     }
                 }
@@ -315,6 +307,7 @@ async function moveItems(itemIds, targetFolderId, userId, overwriteSet = new Set
                 await dbRun("COMMIT;");
                 resolve({ success: true });
             } catch (error) {
+                console.error("数据库事务错误:", error);
                 await dbRun("ROLLBACK;");
                 reject(error);
             }
@@ -531,7 +524,7 @@ function checkFullConflict(name, folderId, userId) {
         `;
         db.get(sql, [name, folderId, userId, name, folderId, userId], (err, row) => {
             if (err) return reject(err);
-            resolve(row || null); // 返回整个冲突对象或 null
+            resolve(row || null); 
         });
     });
 }
@@ -546,11 +539,10 @@ function findFileInFolder(fileName, folderId, userId) {
     });
 }
 
-// --- 核心修正：解决并发上传时的文件夹创建竞争问题 ---
 async function resolvePathToFolderId(startFolderId, pathParts, userId) {
     let currentParentId = startFolderId;
     for (const part of pathParts) {
-        if (!part) continue; // 忽略空路径部分
+        if (!part) continue; 
 
         let folder = await findFolderByName(part, currentParentId, userId);
 
@@ -558,28 +550,23 @@ async function resolvePathToFolderId(startFolderId, pathParts, userId) {
             currentParentId = folder.id;
         } else {
             try {
-                // 尝试创建文件夹
-                const newFolder = await new Promise((resolve, reject) => {
+                const newFolderResult = await new Promise((resolve, reject) => {
                     const sql = `INSERT INTO folders (name, parent_id, user_id) VALUES (?, ?, ?)`;
                     db.run(sql, [part, currentParentId, userId], function(err) {
                         if (err) return reject(err);
                         resolve({ id: this.lastID });
                     });
                 });
-                currentParentId = newFolder.id;
+                currentParentId = newFolderResult.id;
             } catch (error) {
-                // 如果是唯一性约束错误，说明另一个并发任务刚刚创建了它
                 if (error.code === 'SQLITE_CONSTRAINT' || (error.message && error.message.includes('UNIQUE'))) {
-                    // 我们安全地重新查询一次来获取ID
                     const existingFolder = await findFolderByName(part, currentParentId, userId);
                     if (existingFolder) {
                         currentParentId = existingFolder.id;
                     } else {
-                        // 这是一个意料之外的严重错误
                         throw new Error(`在约束冲突后，创建或查找目录 '${part}' 失败。`);
                     }
                 } else {
-                    // 重新抛出其他类型的错误
                     throw error;
                 }
             }
@@ -597,10 +584,8 @@ async function findAllMoveConflicts(itemIds, targetFolderId, userId) {
         const conflict = await checkFullConflict(item.name, targetFolderId, userId);
         if (conflict) {
             if (item.type === 'file') {
-                // 文件可以与文件或文件夹冲突
                 fileConflicts.push(item.name);
             } else if (item.type === 'folder') {
-                // 文件夹可以与文件或文件夹冲突
                 folderConflicts.push(item.name);
             }
         }
@@ -632,7 +617,6 @@ module.exports = {
     getItemsByIds,
     getChildrenOfFolder,
     moveItems,
-    // moveItem, // 不再单独导出 moveItem，逻辑统一到 moveItems
     getFileByShareToken,
     getFolderByShareToken,
     findFileInSharedFolder,

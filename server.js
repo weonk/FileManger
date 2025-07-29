@@ -420,42 +420,39 @@ app.post('/api/check-move-conflict', requireLogin, async (req, res) => {
             return res.status(400).json({ success: false, message: '无效的请求参数。' });
         }
 
-        const itemsToMove = await data.getItemsByIds(itemIds, userId);
-        const topLevelItemNames = itemsToMove.map(item => item.name);
-
-        const topLevelConflicts = await data.getConflictingItems(topLevelItemNames, targetFolderId, userId);
-
         const fileConflictNames = new Set();
-        const folderConflictNames = new Set(); 
+        const folderConflictNames = new Set();
 
-        for (const item of itemsToMove) {
-            const conflict = topLevelConflicts.find(c => c.name === item.name);
-            if (conflict) {
-                if (item.type === 'folder' && conflict.type === 'folder') {
-                    folderConflictNames.add(item.name); 
-                } else {
-                    fileConflictNames.add(item.name); 
+        async function findConflictsRecursive(itemsToMove, destinationFolderId) {
+            if (!itemsToMove || itemsToMove.length === 0) {
+                return;
+            }
+
+            const itemNames = itemsToMove.map(item => item.name);
+            const conflictsInDest = await data.getConflictingItems(itemNames, destinationFolderId, userId);
+
+            for (const item of itemsToMove) {
+                const conflict = conflictsInDest.find(c => c.name === item.name);
+
+                if (conflict) {
+                    if (item.type === 'folder' && conflict.type === 'folder') {
+                        folderConflictNames.add(item.name);
+                        
+                        const sourceChildren = await data.getChildrenOfFolder(item.id, userId);
+                        const destFolderForMerge = await data.findFolderByName(item.name, destinationFolderId, userId);
+                        
+                        if (destFolderForMerge) {
+                            await findConflictsRecursive(sourceChildren, destFolderForMerge.id);
+                        }
+                    } else {
+                        fileConflictNames.add(item.name);
+                    }
                 }
             }
         }
 
-        const foldersToMerge = itemsToMove.filter(item => item.type === 'folder' && folderConflictNames.has(item.name));
-
-        for (const sourceFolder of foldersToMerge) {
-            const destFolder = await data.findFolderByName(sourceFolder.name, targetFolderId, userId);
-            if (!destFolder) continue; 
-
-            const sourceChildren = await data.getChildrenOfFolder(sourceFolder.id, userId);
-            if (sourceChildren.length === 0) continue; 
-
-            const sourceChildrenNames = sourceChildren.map(c => c.name);
-
-            const innerConflicts = await data.getConflictingItems(sourceChildrenNames, destFolder.id, userId);
-
-            for (const innerConflict of innerConflicts) {
-                fileConflictNames.add(innerConflict.name);
-            }
-        }
+        const topLevelItems = await data.getItemsByIds(itemIds, userId);
+        await findConflictsRecursive(topLevelItems, targetFolderId);
 
         res.json({
             success: true,
@@ -490,7 +487,7 @@ app.get('/api/folder/:id', requireLogin, async (req, res) => {
         const contents = await data.getFolderContents(folderId, req.session.userId);
         const path = await data.getFolderPath(folderId, req.session.userId);
         res.json({ contents, path });
-    } catch (error) { res.status(500).json({ success: false, message: '读取资料夾内容失败。' }); }
+    } catch (error) { res.status(500).json({ success: false, message: '读取资料夹内容失败。' }); }
 });
 
 
@@ -498,19 +495,19 @@ app.post('/api/folder', requireLogin, async (req, res) => {
     const { name, parentId } = req.body;
     const userId = req.session.userId;
     if (!name || !parentId) {
-        return res.status(400).json({ success: false, message: '缺少资料夾名称或父 ID。' });
+        return res.status(400).json({ success: false, message: '缺少资料夹名称或父 ID。' });
     }
     
     try {
         const conflict = await data.checkFullConflict(name, parentId, userId);
         if (conflict) {
-            return res.status(409).json({ success: false, message: '同目录下已存在同名档案或资料夾。' });
+            return res.status(409).json({ success: false, message: '同目录下已存在同名档案或资料夹。' });
         }
 
         const result = await data.createFolder(name, parentId, userId);
         res.json(result);
     } catch (error) {
-         res.status(500).json({ success: false, message: error.message || '处理资料夾时发生错误。' });
+         res.status(500).json({ success: false, message: error.message || '处理资料夹时发生错误。' });
     }
 });
 
@@ -546,11 +543,11 @@ app.post('/api/folder/delete', requireLogin, async (req, res) => {
     const { folderId } = req.body;
     const userId = req.session.userId;
     const storage = storageManager.getStorage();
-    if (!folderId) return res.status(400).json({ success: false, message: '无效的资料夾 ID。' });
+    if (!folderId) return res.status(400).json({ success: false, message: '无效的资料夹 ID。' });
     
     const folderInfo = await data.getFolderPath(folderId, userId);
     if (!folderInfo || folderInfo.length === 0) {
-        return res.status(404).json({ success: false, message: '找不到指定的资料夾。' });
+        return res.status(404).json({ success: false, message: '找不到指定的资料夹。' });
     }
     if (folderInfo.length === 1 && folderInfo[0].id === folderId) {
         return res.status(400).json({ success: false, message: '无法删除根目录。' });

@@ -2,24 +2,26 @@ const { createClient } = require('webdav');
 const data = require('../data.js');
 const db = require('../database.js');
 
-let clients = {};
+let client = null;
 
-function getClient(userId) {
-    const storageManager = require('./index'); 
-    const config = storageManager.readConfig();
-    const userWebdavConfig = config.webdav.find(c => c.userId === userId);
-    if (!userWebdavConfig) {
-        throw new Error('找不到该使用者的 WebDAV 设定');
-    }
-
-    const clientKey = `${userId}-${userWebdavConfig.url}-${userWebdavConfig.username}`;
-    if (!clients[clientKey]) {
-        clients[clientKey] = createClient(userWebdavConfig.url, {
-            username: userWebdavConfig.username,
-            password: userWebdavConfig.password
+function getClient() {
+    if (!client) {
+        const storageManager = require('./index'); 
+        const config = storageManager.readConfig();
+        if (!config.webdav || !config.webdav.url) {
+            throw new Error('WebDAV 设定不完整或未设定');
+        }
+        client = createClient(config.webdav.url, {
+            username: config.webdav.username,
+            password: config.webdav.password
         });
     }
-    return clients[clientKey];
+    return client;
+}
+
+// 当 WebDAV 设定更新时，需要重置客户端
+function resetClient() {
+    client = null;
 }
 
 async function getFolderPath(folderId, userId) {
@@ -37,24 +39,26 @@ async function getFolderPath(folderId, userId) {
     return '/' + pathParts.slice(1).map(p => p.name).join('/');
 }
 
-async function upload(fileBuffer, fileName, mimetype, userId, folderId) {
-    const client = getClient(userId);
+async function upload(tempFilePath, fileName, mimetype, userId, folderId) {
+    const client = getClient();
+    const fs = require('fs');
     const folderPath = await getFolderPath(folderId, userId);
     const remotePath = (folderPath === '/' ? '' : folderPath) + '/' + fileName;
     
-    // 解决资料夹上传问题：确保远端目录存在
+    // 确保远端目录存在
     if (folderPath && folderPath !== "/") {
         try {
             await client.createDirectory(folderPath, { recursive: true });
         } catch (e) {
-            // 忽略目录已存在的错误
+            // 忽略目录已存在的错误 (405 Method Not Allowed, 501 Not Implemented)
             if (e.response && (e.response.status !== 405 && e.response.status !== 501)) {
                  throw e;
             }
         }
     }
 
-    const success = await client.putFileContents(remotePath, fileBuffer, { overwrite: true });
+    const readStream = fs.createReadStream(tempFilePath);
+    const success = await client.putFileContents(remotePath, readStream, { overwrite: true });
 
     if (!success) {
         throw new Error('WebDAV putFileContents 操作失败');
@@ -76,11 +80,12 @@ async function upload(fileBuffer, fileName, mimetype, userId, folderId) {
 }
 
 async function remove(files, userId) {
-    const client = getClient(userId);
+    const client = getClient();
     for (const file of files) {
         try {
             await client.deleteFile(file.file_id);
         } catch (error) {
+            // 如果档案在远端不存在 (404)，也视为成功删除
             if (error.response && error.response.status !== 404) {
                  console.warn(`删除 WebDAV 档案失败: ${file.file_id}`, error.message);
             }
@@ -90,16 +95,14 @@ async function remove(files, userId) {
     return { success: true };
 }
 
-// 解决下载和分享问题：新增 stream 方法
 async function stream(file_id, userId) {
-    const client = getClient(userId);
+    const client = getClient();
     return client.createReadStream(file_id);
 }
 
-// getUrl 保持不变，但优先使用 stream
 async function getUrl(file_id, userId) {
-    const client = getClient(userId);
+    const client = getClient();
     return client.getFileDownloadLink(file_id);
 }
 
-module.exports = { upload, remove, getUrl, stream, type: 'webdav' };
+module.exports = { upload, remove, getUrl, stream, resetClient, type: 'webdav' };

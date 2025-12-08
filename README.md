@@ -1,6 +1,7 @@
 ## ☁️ 通过 Cloudflare Dashboard 手动上传部署或github导入
 
 可以直接通过 Cloudflare 网页控制台完成部署。这种方式非常直观，适合手动发布。
+# 支持webdav/S3/telegram,打造属于自己的专属网盘。
 ## 受限于Cloudflare的内存和CPU的限制无法完成在线打包，所以不支持文件夹下载。
 ### 1. 准备工作
     * 登录 Cloudflare Dashboard。

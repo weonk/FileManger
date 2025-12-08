@@ -10,7 +10,7 @@
 ### 2. 创建项目并上传代码
 1.  进入 **Workers & Pages** 页面。
 2.  点击 **Create application** -> 切换到 **Pages** 标签 -> 点击 **Upload assets**。
-3.  输入项目名称（例如 `netdrv`），点击 **Create project**。
+3.  输入项目名称，点击 **Create project**。
 4.  在 **"Upload assets"** 步骤，将你准备好的文件夹内的**所有文件**拖入上传区域。
 5.  点击 **Deploy site**。
     > ⚠️ **注意**：此时虽然显示部署成功，但网站还无法正常运行（会报错 500），因为尚未绑定数据库和设置兼容性标志。请继续下一步。

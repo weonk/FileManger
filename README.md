@@ -4,9 +4,9 @@
 # 支持webdav/S3/telegram,打造属于自己的专属网盘。
 ## 受限于Cloudflare的内存和CPU的限制无法完成在线打包，所以不支持文件夹下载。
 ### 1. 准备工作
-    * 登录 Cloudflare Dashboard。
-    * 在左侧菜单 Workers & Pages-> KV 中，创建一个命名空间（建议命名：netdrv-kv）。
-    * 在左侧菜单 Workers & Pages -> D1 中，创建一个数据库（建议命名：netfile-db）。
+    登录 Cloudflare Dashboard。
+    在左侧菜单 Workers & Pages-> KV 中，创建一个命名空间（建议命名：netdrv-kv）。
+    在左侧菜单 Workers & Pages -> D1 中，创建一个数据库（建议命名：netfile-db）。
 
 ### 2. 创建项目并上传代码
 1.  进入 **Workers & Pages** 页面。

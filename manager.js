@@ -1,4 +1,4 @@
-// public/manager.js - 完整全功能版 (含前端打包下载 & 排序功能)
+// public/manager.js - 修复移动无响应及合并递归问题
 
 // =================================================================================
 // 1. 全局工具函数 (无依赖，放在最外层)
@@ -209,32 +209,76 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // 2. 冲突解决弹窗函数
-    function showConflictModal(message) {
-        return new Promise((resolve) => {
-            conflictMessage.textContent = message;
-            conflictModal.style.display = 'block';
+    // 2. 冲突解决弹窗函数 (支持合并选项)
+    let conflictMergeBtn = document.getElementById('conflictMergeBtn');
+
+    // 动态注入合并按钮（修正版：适配 HTML 结构）
+    function ensureMergeButton() {
+        conflictMergeBtn = document.getElementById('conflictMergeBtn');
+        if (conflictMergeBtn) return; // 已存在则跳过
+
+        // 通过“重命名”按钮定位插入点
+        const renameBtn = document.getElementById('conflictRenameBtn');
+        if (renameBtn && renameBtn.parentNode) {
+            conflictMergeBtn = document.createElement('button');
+            conflictMergeBtn.id = 'conflictMergeBtn';
+            conflictMergeBtn.className = 'btn full-width'; 
+            conflictMergeBtn.style.backgroundColor = '#17a2b8';
+            conflictMergeBtn.style.color = 'white';
+            conflictMergeBtn.style.border = 'none';
+            conflictMergeBtn.style.display = 'none'; // 默认隐藏
+            conflictMergeBtn.innerHTML = '<i class="fas fa-code-branch"></i> 合并文件夹 (智能合并内容)';
             
-            if (applyToAllCheckbox) applyToAllCheckbox.checked = false;
+            // 插入到重命名按钮之后
+            renameBtn.parentNode.insertBefore(conflictMergeBtn, renameBtn.nextSibling);
+        }
+    }
+
+    // 修改 showConflictModal 签名，增加 isFolder 参数
+    function showConflictModal(message, isFolder = false) {
+        ensureMergeButton();
+        return new Promise((resolve) => {
+            const modal = document.getElementById('conflictModal');
+            const msgEl = document.getElementById('conflictMessage');
+            const applyCheck = document.getElementById('applyToAllCheckbox');
+            
+            const btnRename = document.getElementById('conflictRenameBtn');
+            const btnOverwrite = document.getElementById('conflictOverwriteBtn');
+            const btnSkip = document.getElementById('conflictSkipBtn');
+            const btnCancel = document.getElementById('conflictCancelBtn');
+
+            if(msgEl) msgEl.textContent = message;
+            if(modal) modal.style.display = 'block';
+            
+            if (applyCheck) {
+                applyCheck.checked = false;
+            }
+
+            // 控制合并按钮显示
+            if (conflictMergeBtn) {
+                conflictMergeBtn.style.display = isFolder ? 'block' : 'none';
+            }
 
             const cleanup = () => {
-                conflictModal.style.display = 'none';
-                conflictRenameBtn.onclick = null;
-                conflictOverwriteBtn.onclick = null;
-                conflictSkipBtn.onclick = null;
-                conflictCancelBtn.onclick = null;
+                if(modal) modal.style.display = 'none';
+                if(btnRename) btnRename.onclick = null;
+                if(btnOverwrite) btnOverwrite.onclick = null;
+                if(btnSkip) btnSkip.onclick = null;
+                if(btnCancel) btnCancel.onclick = null;
+                if(conflictMergeBtn) conflictMergeBtn.onclick = null;
             };
 
             const handleChoice = (choice) => {
-                const applyToAll = applyToAllCheckbox ? applyToAllCheckbox.checked : false;
+                const applyToAll = applyCheck ? applyCheck.checked : false;
                 cleanup();
                 resolve({ choice, applyToAll });
             };
 
-            conflictRenameBtn.onclick = () => handleChoice('rename');
-            conflictOverwriteBtn.onclick = () => handleChoice('overwrite');
-            conflictSkipBtn.onclick = () => handleChoice('skip');
-            conflictCancelBtn.onclick = () => handleChoice('cancel');
+            if(btnRename) btnRename.onclick = () => handleChoice('rename');
+            if(btnOverwrite) btnOverwrite.onclick = () => handleChoice('overwrite');
+            if(btnSkip) btnSkip.onclick = () => handleChoice('skip');
+            if(btnCancel) btnCancel.onclick = () => handleChoice('cancel');
+            if(conflictMergeBtn) conflictMergeBtn.onclick = () => handleChoice('merge');
         });
     }
 
@@ -809,7 +853,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
     
-    // --- [修改] 下载功能：支持文件夹前端打包 ---
+    // --- [修改] 下载功能：修复 ID 问题，支持文件夹递归下载 ---
     if(downloadBtn) downloadBtn.addEventListener('click', async () => {
         if (selectedItems.size === 0) return;
 
@@ -872,13 +916,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
-            // 开始遍历选中项
+            // [核心修复] 开始遍历选中项 (使用 encrypted_id 而不是 id)
             for (const itemObj of selectedList) {
-                await traverse(itemObj.id, itemObj.type, '', itemObj.item.name);
+                let targetId = itemObj.id;
+                // 如果是文件夹，必须使用 encrypted_id 进行 API 请求
+                if (itemObj.type === 'folder' && itemObj.item.encrypted_id) {
+                    targetId = itemObj.item.encrypted_id;
+                }
+                await traverse(targetId, itemObj.type, '', itemObj.item.name);
             }
 
             if (filesToZip.length === 0) {
-                TaskManager.error('没有可下载的文件');
+                TaskManager.error('无可下载文件(文件夹可能为空)');
                 return;
             }
 
@@ -1146,7 +1195,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if(folderTree) folderTree.innerHTML = `<div style="color:red;padding:10px;">加载失败: ${e.message}</div>`;
         }
     }
-
     function renderFolderTree(folders) {
         const movingFolderIds = new Set();
         selectedItems.forEach(itemStr => {
@@ -1212,84 +1260,187 @@ document.addEventListener('DOMContentLoaded', () => {
         return container;
     }
 
+    // =================================================================================
+    // [重构] 智能移动处理器 (修复：跳过时不删除源文件夹)
+    // =================================================================================
+    const SmartMover = {
+        globalChoice: null,
+        
+        async start(selectedItems, targetFolderId, itemsData, loadFolderCallback) {
+            this.globalChoice = null;
+            
+            // 1. 构建移动队列
+            const queue = [];
+            selectedItems.forEach(idStr => {
+                const [type, realId] = parseItemId(idStr);
+                const item = itemsData.find(i => getItemId(i) === idStr);
+                if (item) {
+                    queue.push({ 
+                        type, 
+                        id: realId, // 原始 ID (用于移动操作)
+                        encryptedId: item.encrypted_id || null, // 加密 ID (用于读取内容)
+                        name: item.name 
+                    });
+                }
+            });
+
+            const total = queue.length;
+            let processed = 0;
+            let hasError = false;
+
+            TaskManager.show(`准备移动 ${total} 个项目...`, 'fas fa-arrows-alt');
+
+            try {
+                for (const item of queue) {
+                    processed++;
+                    TaskManager.show(`正在移动 [${processed}/${total}]: ${item.name}`);
+                    // 传入 encryptedId 以便在合并时能读取源文件夹内容
+                    await this.recursiveMove(item.type, item.id, item.encryptedId, item.name, targetFolderId);
+                }
+                TaskManager.success('移动操作完成');
+            } catch (e) {
+                hasError = true;
+                if (e.message === 'USER_CANCEL') {
+                    TaskManager.show('用户取消操作', 'fas fa-ban');
+                    setTimeout(() => TaskManager.hide(), 1500);
+                } else {
+                    console.error(e);
+                    TaskManager.error(`移动中断: ${e.message}`);
+                    alert(`移动过程中出错: ${e.message}`);
+                }
+            } finally {
+                // 清理与刷新
+                const moveModal = document.getElementById('moveModal');
+                const confirmBtn = document.getElementById('confirmMoveBtn');
+                
+                if(moveModal) moveModal.style.display = 'none';
+                if(confirmBtn) {
+                    confirmBtn.textContent = '确定移动';
+                    confirmBtn.disabled = false;
+                }
+                
+                selectedItems.clear();
+                // 无论成功失败，都刷新当前视图以显示最新状态
+                loadFolderCallback(currentFolderId);
+            }
+        },
+
+        // 核心递归函数
+        async recursiveMove(type, id, encryptedId, name, targetFolderId) {
+            let conflictMode = 'rename'; 
+            let performAction = true;
+            let isMerge = false;
+
+            try {
+                // A. 检查目标位置冲突
+                
+                // 获取目标文件夹内容 (targetFolderId 是加密ID)
+                const targetRes = await axios.get(`/api/folder/${targetFolderId}?t=${Date.now()}`);
+                const targetContents = targetRes.data.contents;
+                
+                const existingFile = targetContents.files.find(f => f.fileName === name);
+                const existingFolder = targetContents.folders.find(f => f.name === name);
+                
+                const hasConflict = (type === 'file' && existingFile) || (type === 'folder' && existingFolder);
+
+                if (hasConflict) {
+                    let userChoice = this.globalChoice;
+
+                    if (!userChoice) {
+                        // 仅当两个都是文件夹时，才显示“合并”选项
+                        const isFolderMergeContext = (type === 'folder' && existingFolder);
+                        const msg = `目标位置已存在同名${type === 'folder' ? '文件夹' : '文件'}: "${name}"。`;
+                        
+                        // 弹出冲突对话框
+                        const result = await showConflictModal(msg, isFolderMergeContext);
+                        userChoice = result.choice;
+                        
+                        if (result.applyToAll) {
+                            this.globalChoice = userChoice;
+                        }
+                    }
+
+                    if (userChoice === 'cancel') throw new Error('USER_CANCEL');
+                    if (userChoice === 'skip') performAction = false;
+                    if (userChoice === 'overwrite') conflictMode = 'overwrite';
+                    if (userChoice === 'rename') conflictMode = 'rename';
+                    if (userChoice === 'merge') isMerge = true;
+                }
+
+            } catch (e) {
+                if (e.message === 'USER_CANCEL') throw e;
+                console.warn(`检查冲突失败 (${name})，尝试默认移动`, e);
+            }
+
+            if (!performAction) return;
+
+            // B. 执行动作
+            if (isMerge && type === 'folder') {
+                // === 分支 1: 前端递归合并 ===
+                TaskManager.show(`正在合并文件夹: ${name}...`, 'fas fa-code-branch');
+                
+                // 1. 获取源文件夹内容 (必须使用加密ID !)
+                if (!encryptedId) throw new Error(`无法读取源文件夹 ${name} 的内容 (缺少ID)`);
+                
+                const sourceRes = await axios.get(`/api/folder/${encryptedId}?t=${Date.now()}`);
+                const sourceContents = sourceRes.data.contents;
+
+                // 2. 找到目标子文件夹的加密 ID (作为下一级的 targetFolderId)
+                const targetRes = await axios.get(`/api/folder/${targetFolderId}?t=${Date.now()}`);
+                const targetSubFolder = targetRes.data.contents.folders.find(f => f.name === name);
+                
+                if (!targetSubFolder) throw new Error(`同步错误: 目标文件夹 ${name} 突然消失`);
+                const nextTargetId = targetSubFolder.encrypted_id;
+
+                // 3. 递归移动源文件夹内的所有文件
+                for (const file of sourceContents.files) {
+                    await this.recursiveMove('file', file.message_id, null, file.fileName, nextTargetId);
+                }
+
+                // 4. 递归移动源文件夹内的所有子文件夹
+                for (const folder of sourceContents.folders) {
+                    await this.recursiveMove('folder', folder.id, folder.encrypted_id, folder.name, nextTargetId);
+                }
+
+                // 5. [核心修复] 合并完成后，必须检查源文件夹是否为空
+                try {
+                    const checkRes = await axios.get(`/api/folder/${encryptedId}?t=${Date.now()}`);
+                    const leftovers = checkRes.data.contents;
+                    
+                    if (leftovers.files.length === 0 && leftovers.folders.length === 0) {
+                        // 只有确认由空，才执行删除 (使用原始 id)
+                        await axios.post('/api/delete', { files: [], folders: [id], permanent: false });
+                    } else {
+                        // 如果不为空，说明有项目被跳过，保留文件夹
+                        console.log(`[SmartMover] 源文件夹 "${name}" 非空，已保留。`);
+                    }
+                } catch (delErr) {
+                    console.warn('合并后清理源文件夹失败:', delErr);
+                }
+
+            } else {
+                // === 分支 2: 标准移动 (调用后端) ===
+                await axios.post('/api/move', { 
+                    files: type === 'file' ? [id] : [], 
+                    folders: type === 'folder' ? [id] : [], 
+                    targetFolderId: targetFolderId, 
+                    conflictMode: conflictMode 
+                });
+            }
+        }
+    };
+
+    // [修改] 绑定新的移动按钮事件
     if(confirmMoveBtn) confirmMoveBtn.addEventListener('click', async () => {
         if (!selectedMoveTargetId) return;
         
-        const files = []; const folders = [];
-        const moveItemNames = []; 
+        confirmMoveBtn.disabled = true;
+        confirmMoveBtn.textContent = '处理中...';
         
-        selectedItems.forEach(id => { 
-            const [type, realId] = parseItemId(id); 
-            const originalItem = items.find(i => getItemId(i) === id);
-            if (originalItem) {
-                if (type === 'file') { 
-                    files.push(realId); 
-                } else { 
-                    folders.push(realId); 
-                }
-                moveItemNames.push({ type, name: originalItem.name });
-            }
-        });
-        
-        try {
-            confirmMoveBtn.textContent = '正在检查冲突...';
-            confirmMoveBtn.disabled = true;
-            
-            // 1. 获取目标文件夹内容进行比对 (验重)
-            const targetRes = await axios.get(`/api/folder/${selectedMoveTargetId}?t=${Date.now()}`);
-            const targetContents = targetRes.data.contents;
-            
-            const targetFileNames = new Set(targetContents.files.map(f => f.fileName));
-            const targetFolderNames = new Set(targetContents.folders.map(f => f.name));
-            
-            // 2. 筛选出冲突项
-            const conflicts = moveItemNames.filter(item => {
-                if (item.type === 'file') {
-                    return targetFileNames.has(item.name);
-                } else {
-                    return targetFolderNames.has(item.name);
-                }
-            });
-            
-            let conflictMode = 'rename'; 
-            
-            if (conflicts.length > 0) {
-                // 3. 如果有冲突，显示弹窗让用户选择
-                const conflictNames = conflicts.map(c => c.name).slice(0, 3).join(', ');
-                const moreText = conflicts.length > 3 ? ` 等 ${conflicts.length} 个项目` : '';
-                const msg = `目标位置已存在同名项目: "${conflictNames}"${moreText}。`;
-                
-                const result = await showConflictModal(msg);
-                
-                if (result.choice === 'cancel') {
-                    confirmMoveBtn.textContent = '确定移动';
-                    confirmMoveBtn.disabled = false;
-                    moveModal.style.display = 'none';
-                    return;
-                }
-                conflictMode = result.choice;
-            }
-
-            // 4. 执行移动
-            confirmMoveBtn.textContent = '移动中...';
-            TaskManager.show('正在移动...', 'fas fa-arrows-alt'); 
-            
-            await axios.post('/api/move', { 
-                files, folders, targetFolderId: selectedMoveTargetId, conflictMode: conflictMode 
-            });
-            
-            TaskManager.success('移动完成');
-            moveModal.style.display = 'none';
-            selectedItems.clear();
-            loadFolder(currentFolderId);
-        } catch (e) {
-            alert('移动失败: ' + (e.response?.data?.message || e.message));
-            TaskManager.error('移动失败');
-        } finally {
-            confirmMoveBtn.textContent = '确定移动';
-            confirmMoveBtn.disabled = false;
-        }
+        // 启动智能移动
+        await SmartMover.start(selectedItems, selectedMoveTargetId, items, loadFolder);
     });
+
 
     // 上传功能
     async function getFolderContentsForUpload(encryptedId) {
@@ -1665,3 +1816,4 @@ document.addEventListener('DOMContentLoaded', () => {
     loadFolder(currentFolderId);
     updateQuota();
 });
+
